@@ -1,0 +1,65 @@
+name: muhafiz_1
+description: "MUHAFIZ - Emergency Response App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.3
+
+  # Utilities
+  image_picker: ^1.1.2
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+  intl: ^0.19.0
+  path_provider: ^2.1.0
+  http: ^1.2.2
+  google_maps_flutter: ^2.9.0
+
+  # Free Maps (OpenStreetMap - no API key needed)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.0
+
+  # Hardware & System Control
+  permission_handler: ^11.3.1
+  screen_brightness: ^0.2.2+1
+  audioplayers: ^6.0.0
+  url_launcher: ^6.3.1
+  shared_preferences: ^2.3.2
+  vibration: ^2.0.0
+  provider: ^6.1.2
+  record: ^6.0.0
+
+  # Network & Connectivity
+  connectivity_plus: ^6.1.1
+
+  # Bluetooth BLE alerts
+  flutter_blue_plus: ^1.35.5
+
+  # SMS
+  flutter_sms: ^3.0.1
+  workmanager: ^0.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/images/transparent.png
+    - assets/siren.mp3
