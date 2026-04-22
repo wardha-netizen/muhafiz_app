@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1029884992968",
+    "project_id": "muhafiz-ef76e",
+    "storage_bucket": "muhafiz-ef76e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1029884992968:android:c48928dd3c271e8dc734fd",
+        "android_client_info": {
+          "package_name": "com.example.muhafiz_1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1029884992968-8jabo4s7ajl29l9krue8bb9oec05i4p4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6wtrhwfbQM6bVnPJMirCSWs7L8oXLopI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1029884992968-8jabo4s7ajl29l9krue8bb9oec05i4p4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1029884992968-877bkg29h6nm6f0me64c90lvja1hfmu0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.muhafiz1"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
