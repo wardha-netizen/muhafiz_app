@@ -208,6 +208,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
   final _buzzer = _BuzzerController();
   String _userName = 'MUHAFIZ User';
   String _location = 'Fetching location…';
+  Position? _lastPosition;
 
   @override
   void initState() {
@@ -237,6 +238,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 8));
+      _lastPosition = pos;
       final marks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
       final p = marks.first;
       if (mounted) {
@@ -490,6 +492,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
           service: svc,
           draft: draft,
           onCallPressed: () => _callService(svc),
+          onStreetLocPressed: _openStreetLocation,
           onBuzzerToggle: () async {
             if (_buzzer.isActive) {
               _buzzer.stop();
@@ -511,6 +514,46 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
     final uri = Uri(scheme: 'tel', path: svc.number);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
+
+  Future<void> _openStreetLocation() async {
+    // Best-effort: use last known position; if missing, fetch quickly.
+    Position? pos = _lastPosition;
+    if (pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        ).timeout(const Duration(seconds: 6));
+        _lastPosition = pos;
+      } catch (_) {}
+    }
+
+    final lat = pos?.latitude;
+    final lng = pos?.longitude;
+    if (lat == null || lng == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not fetch GPS location. Please enable Location and try again.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Prefer geo: (Android), otherwise OpenStreetMap externally.
+    final geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng(MUHAFIZ%20Location)');
+    if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri);
+      return;
+    }
+
+    final osm = Uri.parse(
+      'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=18/$lat/$lng',
+    );
+    if (await canLaunchUrl(osm)) {
+      await launchUrl(osm, mode: LaunchMode.externalApplication);
+    }
+  }
 }
 
 // ── Service bottom sheet ─────────────────────────────────────────────────────
@@ -519,6 +562,7 @@ class _ServiceSheet extends StatelessWidget {
   final _Service service;
   final String draft;
   final VoidCallback onCallPressed;
+  final VoidCallback onStreetLocPressed;
   final VoidCallback onBuzzerToggle;
   final bool isBuzzerActive;
   final ScrollController scrollController;
@@ -527,6 +571,7 @@ class _ServiceSheet extends StatelessWidget {
     required this.service,
     required this.draft,
     required this.onCallPressed,
+    required this.onStreetLocPressed,
     required this.onBuzzerToggle,
     required this.isBuzzerActive,
     required this.scrollController,
@@ -601,6 +646,21 @@ class _ServiceSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+
+        // Street location (secondary action)
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: service.color.withValues(alpha: 0.55)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          icon: Icon(Icons.location_on_outlined, color: service.color),
+          label: Text(
+            'Street Location',
+            style: TextStyle(color: service.color, fontWeight: FontWeight.bold),
+          ),
+          onPressed: onStreetLocPressed,
+        ),
+        const SizedBox(height: 14),
 
         // Buzzer toggle
         OutlinedButton.icon(

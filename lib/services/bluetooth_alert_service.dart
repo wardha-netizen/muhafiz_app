@@ -68,6 +68,9 @@ class BluetoothAlertService {
 
   // ── BLE scanning ──────────────────────────────────────────────────────────
 
+  static Stream<BluetoothAdapterState> get adapterStateStream =>
+      FlutterBluePlus.adapterState;
+
   static Future<bool> isBluetoothAvailable() async {
     try {
       return FlutterBluePlus.adapterStateNow == BluetoothAdapterState.on;
@@ -76,10 +79,39 @@ class BluetoothAlertService {
     }
   }
 
+  /// Ensures Bluetooth is ON (best-effort).
+  /// On Android, this can prompt the user to enable Bluetooth.
+  /// Returns `true` when adapter state becomes ON within a short timeout.
+  static Future<bool> ensureBluetoothOn({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    try {
+      if (FlutterBluePlus.adapterStateNow == BluetoothAdapterState.on) {
+        return true;
+      }
+
+      // Best-effort: prompt user to enable Bluetooth (Android).
+      // If unsupported on this platform/device, it will throw and we fall back.
+      try {
+        await FlutterBluePlus.turnOn();
+      } catch (_) {}
+
+      final state = await FlutterBluePlus.adapterState
+          .firstWhere(
+            (s) => s == BluetoothAdapterState.on,
+          )
+          .timeout(timeout);
+
+      return state == BluetoothAdapterState.on;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Scan for any nearby BLE devices (general proximity awareness).
   /// Emits updated [NearbyDevice] list via [nearbyDevices] stream.
   static Future<void> startScanning() async {
-    if (!await isBluetoothAvailable()) return;
+    if (!await ensureBluetoothOn()) return;
     await _scanSub?.cancel();
 
     try {

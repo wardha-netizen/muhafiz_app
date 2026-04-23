@@ -25,9 +25,31 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isVolunteer = false;
   bool _isUrdu = false;
   final User? user = FirebaseAuth.instance.currentUser;
+  String _currentUserName = 'MUHAFIZ User';
 
   String _t(String eng, String ur) =>
       AppLocalizations.text(isUrdu: _isUrdu, english: eng, urdu: ur);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserName();
+  }
+
+  Future<void> _loadCurrentUserName() async {
+    final uid = user?.uid;
+    if (uid == null) return;
+    try {
+      final snap =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!mounted) return;
+      final data = snap.data();
+      final name = (data?['name'] as String?)?.trim();
+      setState(() => _currentUserName = (name == null || name.isEmpty) ? 'MUHAFIZ User' : name);
+    } catch (_) {
+      // Keep fallback
+    }
+  }
 
   List<Widget> _getScreens() {
     return [
@@ -371,10 +393,171 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLiveFeed() {
-    return const Center(
-      child: Text('Active emergencies will appear here',
-          style: TextStyle(color: Colors.grey)),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('emergencies')
+          .orderBy('timestamp', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(color: Colors.redAccent),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Could not load emergencies.',
+                style: TextStyle(color: Colors.grey)),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? const [];
+        if (docs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No recent emergencies right now.',
+                style: TextStyle(color: Colors.grey)),
+          );
+        }
+
+        // Keep UI robust even if older documents have inconsistent `status` values.
+        final filtered = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          final status = (data['status'] ?? '').toString().trim().toLowerCase();
+          if (status.isEmpty) return true; // legacy docs
+          return status == 'active' || status == 'critical';
+        }).toList();
+
+        if (filtered.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No recent emergencies right now.',
+                style: TextStyle(color: Colors.grey)),
+          );
+        }
+
+        return Column(
+          children: filtered.map((d) {
+            final data = d.data() as Map<String, dynamic>;
+            final type = (data['type'] ?? 'Emergency').toString();
+            final reporter = (data['userName'] ?? 'Unknown').toString();
+            final location = (data['location'] ?? '').toString();
+            final ts = (data['timestamp'] as Timestamp?)?.toDate();
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber, color: Colors.redAccent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          type,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Reported by: $reporter',
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        if (location.isNotEmpty)
+                          Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                        if (ts != null)
+                          Text(
+                            '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(color: Colors.white24, fontSize: 11),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: user == null
+                        ? null
+                        : () => _volunteerForEmergency(emergencyId: d.id),
+                    child: const Text(
+                      'Volunteer',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
+  }
+
+  Future<void> _volunteerForEmergency({required String emergencyId}) async {
+    final uid = user?.uid;
+    if (uid == null) return;
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final emerRef =
+            FirebaseFirestore.instance.collection('emergencies').doc(emergencyId);
+        final volRef = emerRef.collection('volunteers').doc(uid);
+
+        final existing = await tx.get(volRef);
+        if (existing.exists) return;
+
+        tx.set(volRef, {
+          'volunteerId': uid,
+          'volunteerName': _currentUserName,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        tx.update(emerRef, {
+          'volunteerCount': FieldValue.increment(1),
+        });
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You volunteered for this emergency.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not volunteer: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildBottomNav(bool isDark) {

@@ -18,41 +18,74 @@ class AppRoutes {
   static const bluetoothAlerts = '/bluetooth_alerts';
   static const karachiMap = '/karachi_map';
 
+  static Route<dynamic> _smoothRoute({
+    required RouteSettings settings,
+    required Widget child,
+  }) {
+    return PageRouteBuilder(
+      settings: settings,
+      transitionDuration: const Duration(milliseconds: 260),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        final offsetTween = Tween<Offset>(
+          begin: const Offset(0.04, 0),
+          end: Offset.zero,
+        );
+
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: offsetTween.animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case splash:
-        return MaterialPageRoute(builder: (_) => const SplashScreen());
+        return _smoothRoute(settings: settings, child: const SplashScreen());
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        return _smoothRoute(settings: settings, child: const LoginScreen());
       case signup:
-        return MaterialPageRoute(builder: (_) => const SignUpScreen());
+        return _smoothRoute(settings: settings, child: const SignUpScreen());
       case forgotPassword:
-        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+        return _smoothRoute(settings: settings, child: const ForgotPasswordScreen());
       case location:
-        return MaterialPageRoute(builder: (_) => const LocationScreen());
+        return _smoothRoute(settings: settings, child: const LocationScreen());
       case disasterAnalysis:
-        return MaterialPageRoute(builder: (_) => const DisasterAnalysisScreen());
+        return _smoothRoute(settings: settings, child: const DisasterAnalysisScreen());
       case disasterPrediction:
-        return MaterialPageRoute(builder: (_) => const DisasterPredictionScreen());
+        return _smoothRoute(settings: settings, child: const DisasterPredictionScreen());
       case permissions:
-        return MaterialPageRoute(builder: (_) => const PermissionsScreen());
+        return _smoothRoute(settings: settings, child: const PermissionsScreen());
       case emergencyContacts:
-        return MaterialPageRoute(builder: (_) => const EmergencyContactsScreen());
+        return _smoothRoute(settings: settings, child: const EmergencyContactsScreen());
       case emergencyReports:
-        return MaterialPageRoute(builder: (_) => const EmergencyReportsScreen());
+        return _smoothRoute(settings: settings, child: const EmergencyReportsScreen());
       case home:
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
+        return _smoothRoute(settings: settings, child: const HomeScreen());
       case report:
-        return MaterialPageRoute(builder: (_) => const ReportEmergencyScreen());
+        return _smoothRoute(settings: settings, child: const ReportEmergencyScreen());
       case offlineGuide:
-        return MaterialPageRoute(builder: (_) => const OfflineGuideScreen());
+        return _smoothRoute(settings: settings, child: const OfflineGuideScreen());
       case bluetoothAlerts:
-        return MaterialPageRoute(builder: (_) => const BluetoothScreen());
+        return _smoothRoute(settings: settings, child: const BluetoothScreen());
       case karachiMap:
-        return MaterialPageRoute(builder: (_) => const KarachiEmergencyMapScreen());
+        return _smoothRoute(settings: settings, child: const KarachiEmergencyMapScreen());
       default:
-        return MaterialPageRoute(
-          builder: (_) => Scaffold(
+        return _smoothRoute(
+          settings: settings,
+          child: Scaffold(
             body: Center(child: Text('Route not found: ${settings.name}')),
           ),
         );
