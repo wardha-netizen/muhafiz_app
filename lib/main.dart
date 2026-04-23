@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,11 +21,10 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  // Initialize background sync service
-  BackgroundSyncService.initialize();
-
   final settingsProvider = SettingsProvider();
-  await settingsProvider.loadSettings();
+
+  // Defer non-critical initialization off the startup critical path.
+  unawaited(Future<void>(() => BackgroundSyncService.initialize()));
 
   runApp(
     ChangeNotifierProvider(

@@ -139,7 +139,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('contact1', _c1Phone.text.trim());
       await prefs.setString('contact2', _c2Phone.text.trim());
-      await prefs.setString('name1', _c1Name.text.trim());
+      // Used across the app as the signed-in user's display name.
+      // (Older code used `name1` for contact 1 by mistake.)
+      await prefs.setString('name1', _nameController.text.trim());
       await prefs.setString('name2', _c2Name.text.trim());
 
       if (!mounted) return;

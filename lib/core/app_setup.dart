@@ -19,18 +19,7 @@ class AppSetup extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       home: const SplashScreen(),
-      routes: {
-        AppRoutes.login: (context) => const LoginScreen(),
-        AppRoutes.signup: (context) => const SignUpScreen(),
-        AppRoutes.forgotPassword: (context) => const ForgotPasswordScreen(),
-        AppRoutes.location: (context) => const LocationScreen(),
-        AppRoutes.disasterAnalysis: (context) => const DisasterAnalysisScreen(),
-        AppRoutes.permissions: (context) => const PermissionsScreen(),
-        AppRoutes.emergencyContacts: (context) => const EmergencyContactsScreen(),
-        AppRoutes.emergencyReports: (context) => const EmergencyReportsScreen(),
-        AppRoutes.home: (context) => const HomeScreen(),
-        AppRoutes.report: (context) => const ReportEmergencyScreen(),
-      },
+      onGenerateRoute: AppRoutes.generateRoute,
     );
   }
 }

@@ -18,6 +18,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
   StreamSubscription<List<NearbyDevice>>? _devicesSub;
   StreamSubscription<ProximityAlert>? _alertSub;
+  StreamSubscription<dynamic>? _adapterSub;
 
   @override
   void initState() {
@@ -26,9 +27,20 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   Future<void> _init() async {
+    // Keep bluetooth availability updated live (user may toggle it in Settings).
+    _adapterSub?.cancel();
+    _adapterSub = BluetoothAlertService.adapterStateStream.listen((state) {
+      if (!mounted) return;
+      final on = state.toString().toLowerCase().contains('on');
+      setState(() => _btAvailable = on);
+      if (!on && _isScanning) {
+        setState(() => _isScanning = false);
+      }
+    });
+
+    // Seed initial state
     final available = await BluetoothAlertService.isBluetoothAvailable();
-    if (!mounted) return;
-    setState(() => _btAvailable = available);
+    if (mounted) setState(() => _btAvailable = available);
 
     // Listen to nearby devices stream
     _devicesSub = BluetoothAlertService.nearbyDevices.listen((devices) {
@@ -52,8 +64,12 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
       if (mounted) setState(() => _isScanning = false);
     } else {
       if (!_btAvailable) {
-        _showSnack('Bluetooth is off. Please enable it in Settings.', Colors.orange);
-        return;
+        _showSnack('Turning on Bluetooth…', Colors.orange);
+        final ok = await BluetoothAlertService.ensureBluetoothOn();
+        if (!ok) {
+          _showSnack('Bluetooth is off. Please enable it and try again.', Colors.orange);
+          return;
+        }
       }
       await BluetoothAlertService.startScanning();
       if (mounted) setState(() => _isScanning = true);
@@ -176,6 +192,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   void dispose() {
     _devicesSub?.cancel();
     _alertSub?.cancel();
+    _adapterSub?.cancel();
     BluetoothAlertService.stopScanning();
     BluetoothAlertService.stopListening();
     super.dispose();

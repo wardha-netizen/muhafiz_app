@@ -11,10 +11,27 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), _navigateNext);
+    // Don't artificially block startup; keep a tiny delay to let the first frame
+    // render and the logo decode happen smoothly.
+    _timer = Timer(const Duration(milliseconds: 350), _navigateNext);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Precache the splash logo to avoid a janky first paint on slower devices.
+    precacheImage(const AssetImage('assets/images/logo.png'), context);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   void _navigateNext() {
