@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/app_routes.dart';
+import 'report_misuse_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -63,10 +65,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() => _imageFile = File(pickedFile.path));
-      // TODO: Upload _imageFile to Firebase Storage and update 'profile_pic' in Firestore
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      imageQuality: 80,
+    );
+    if (pickedFile == null) return;
+    final file = File(pickedFile.path);
+    setState(() => _imageFile = file);
+    await _uploadProfilePhoto(file);
+  }
+
+  Future<void> _uploadProfilePhoto(File file) async {
+    if (user == null) return;
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child('${user!.uid}.jpg');
+      await ref.putFile(file);
+      final url = await ref.getDownloadURL();
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .update({'profile_pic': url});
+      if (!mounted) return;
+      setState(() => _profileImageUrl = url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile photo updated!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -199,6 +237,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: _changePassword,
                   icon: const Icon(Icons.lock_reset, color: Colors.redAccent),
                   label: const Text('Change Password', style: TextStyle(color: Colors.redAccent)),
+                ),
+                const Divider(color: Colors.white10, height: 8),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.flag_outlined, color: Colors.orangeAccent),
+                  title: const Text('Report App Misuse',
+                      style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text('Report fake alerts or inappropriate content',
+                      style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ReportMisuseScreen()),
+                  ),
                 ),
                 if (_isEditing) ...[
                   const SizedBox(height: 30),

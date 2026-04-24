@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../services/places_service.dart';
 
 class MuhafizCommandCentreScreen extends StatelessWidget {
@@ -42,7 +43,7 @@ class DynamicEmergencyMap extends StatefulWidget {
 
 class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
   final PlacesService _placesService = PlacesService();
-  Set<Marker> _dynamicMarkers = {};
+  List<Map<String, dynamic>> _places = [];
   bool _isLoading = true;
   String? _error;
 
@@ -63,17 +64,28 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
       case 'Assault':
       case 'Robbery':
         return 'police';
-      case 'Flood':
-        return 'establishment';
       default:
-        return 'establishment';
+        return 'hospital';
     }
   }
 
   double _computeImpactRadiusMeters() {
     final normalized = widget.severityScore <= 0 ? 1.0 : widget.severityScore;
-    final radius = 800 * normalized;
-    return radius.clamp(300, 5000);
+    return (800 * normalized).clamp(300, 5000);
+  }
+
+  Color _emergencyColor() {
+    switch (widget.emergencyType) {
+      case 'Fire':
+        return Colors.orange;
+      case 'Medical':
+        return Colors.red;
+      case 'Assault':
+      case 'Robbery':
+        return Colors.blue;
+      default:
+        return Colors.red;
+    }
   }
 
   Future<void> _loadContextualData() async {
@@ -86,44 +98,12 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
       final results = await _placesService.fetchNearbyPlaces(
         location: widget.userLocation,
         category: _getCategory(),
-      );
-
-      final dynamicMarkers = results.map((place) {
-        final geometry = place['geometry'] as Map<String, dynamic>?;
-        final location = geometry?['location'] as Map<String, dynamic>?;
-        final lat = (location?['lat'] as num?)?.toDouble();
-        final lng = (location?['lng'] as num?)?.toDouble();
-        if (lat == null || lng == null) return null;
-
-        return Marker(
-          markerId: MarkerId((place['place_id'] ?? '$lat,$lng').toString()),
-          position: LatLng(lat, lng),
-          infoWindow: InfoWindow(
-            title: (place['name'] ?? 'Nearby place').toString(),
-            snippet: 'Rating: ${(place['rating'] ?? 'N/A').toString()}',
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            widget.emergencyType == 'Medical'
-                ? BitmapDescriptor.hueRed
-                : BitmapDescriptor.hueAzure,
-          ),
-        );
-      }).whereType<Marker>().toSet();
-
-      dynamicMarkers.add(
-        Marker(
-          markerId: const MarkerId('user_loc'),
-          position: widget.userLocation,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueOrange,
-          ),
-          infoWindow: const InfoWindow(title: 'Your Location'),
-        ),
+        radiusMeters: _computeImpactRadiusMeters().toInt(),
       );
 
       if (!mounted) return;
       setState(() {
-        _dynamicMarkers = dynamicMarkers;
+        _places = results;
         _isLoading = false;
       });
     } catch (e) {
@@ -137,31 +117,97 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
 
   @override
   Widget build(BuildContext context) {
+    final color = _emergencyColor();
+    final radius = _computeImpactRadiusMeters();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Muhafiz Command Centre'),
+        title: Text('${widget.emergencyType} Command Centre'),
+        backgroundColor: color,
+        foregroundColor: Colors.white,
         actions: [
-          IconButton(onPressed: _loadContextualData, icon: const Icon(Icons.refresh)),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadContextualData,
+          ),
         ],
       ),
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: widget.userLocation,
-              zoom: 14,
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: widget.userLocation,
+              initialZoom: 14,
+              maxZoom: 18,
+              minZoom: 10,
             ),
-            markers: _dynamicMarkers,
-            circles: {
-              Circle(
-                circleId: const CircleId('impact_zone'),
-                center: widget.userLocation,
-                radius: _computeImpactRadiusMeters(),
-                fillColor: Colors.red.withValues(alpha: 0.2),
-                strokeColor: Colors.red,
-                strokeWidth: 1,
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.muhafiz_1',
               ),
-            },
+              CircleLayer(
+                circles: [
+                  CircleMarker(
+                    point: widget.userLocation,
+                    radius: radius,
+                    useRadiusInMeter: true,
+                    color: color.withValues(alpha: 0.18),
+                    borderColor: color,
+                    borderStrokeWidth: 1.5,
+                  ),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  // User marker
+                  Marker(
+                    point: widget.userLocation,
+                    width: 44,
+                    height: 44,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: color, width: 3),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black38, blurRadius: 6),
+                        ],
+                      ),
+                      child: Icon(Icons.my_location, size: 22, color: color),
+                    ),
+                  ),
+                  // Nearby place markers
+                  ..._places.map((p) {
+                    final lat = p['lat'] as double;
+                    final lng = p['lng'] as double;
+                    return Marker(
+                      point: LatLng(lat, lng),
+                      width: 36,
+                      height: 36,
+                      child: GestureDetector(
+                        onTap: () => _showPlaceSheet(p),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black38, blurRadius: 4),
+                            ],
+                          ),
+                          child: Icon(
+                            _categoryIcon(),
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ],
           ),
           if (_isLoading)
             const Positioned.fill(
@@ -170,7 +216,7 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
-          if (_error != null)
+          if (_error != null && !_isLoading)
             Positioned(
               left: 12,
               right: 12,
@@ -181,13 +227,80 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    'Map data error: $_error',
+                    'Could not load nearby places: $_error',
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
               ),
             ),
+          if (!_isLoading && _places.isEmpty && _error == null)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Material(
+                color: Colors.grey.shade800,
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'No nearby services found in this area.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  IconData _categoryIcon() {
+    switch (widget.emergencyType) {
+      case 'Fire':
+        return Icons.fire_truck;
+      case 'Medical':
+        return Icons.local_hospital;
+      case 'Assault':
+      case 'Robbery':
+        return Icons.local_police;
+      case 'Quake':
+        return Icons.park;
+      default:
+        return Icons.place;
+    }
+  }
+
+  void _showPlaceSheet(Map<String, dynamic> place) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              (place['name'] ?? 'Nearby service').toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (place['phone'] != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Phone: ${place['phone']}',
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
