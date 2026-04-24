@@ -57,19 +57,18 @@ class BluetoothAlertService {
 
   static final _nearbyController =
       StreamController<List<NearbyDevice>>.broadcast();
-  static final _alertController =
-      StreamController<ProximityAlert>.broadcast();
+  static final _alertController = StreamController<ProximityAlert>.broadcast();
 
   static Stream<List<NearbyDevice>> get nearbyDevices =>
       _nearbyController.stream;
   static Stream<ProximityAlert> get incomingAlerts => _alertController.stream;
 
+  static Stream<BluetoothAdapterState> get adapterStateStream =>
+      FlutterBluePlus.adapterState;
+
   static final Map<String, NearbyDevice> _seen = {};
 
   // ── BLE scanning ──────────────────────────────────────────────────────────
-
-  static Stream<BluetoothAdapterState> get adapterStateStream =>
-      FlutterBluePlus.adapterState;
 
   static Future<bool> isBluetoothAvailable() async {
     try {
@@ -90,16 +89,12 @@ class BluetoothAlertService {
         return true;
       }
 
-      // Best-effort: prompt user to enable Bluetooth (Android).
-      // If unsupported on this platform/device, it will throw and we fall back.
       try {
         await FlutterBluePlus.turnOn();
       } catch (_) {}
 
       final state = await FlutterBluePlus.adapterState
-          .firstWhere(
-            (s) => s == BluetoothAdapterState.on,
-          )
+          .firstWhere((s) => s == BluetoothAdapterState.on)
           .timeout(timeout);
 
       return state == BluetoothAdapterState.on;
@@ -139,8 +134,8 @@ class BluetoothAlertService {
       // Remove devices not seen in the last 30 s
       _seen.removeWhere(
           (_, d) => DateTime.now().difference(d.seenAt).inSeconds > 30);
-      _nearbyController.add(_seen.values.toList()
-        ..sort((a, b) => b.rssi.compareTo(a.rssi)));
+      _nearbyController
+          .add(_seen.values.toList()..sort((a, b) => b.rssi.compareTo(a.rssi)));
     });
   }
 
@@ -204,7 +199,8 @@ class BluetoothAlertService {
           userName: data['userName'] ?? 'Unknown',
           emergencyType: data['emergencyType'] ?? 'SOS',
           location: data['location'] ?? '',
-          timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          timestamp:
+              (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         );
 
         _alertController.add(alert);
@@ -222,8 +218,8 @@ class BluetoothAlertService {
     _firestoreSub = null;
   }
 
-  static void disposeAll() {
-    stopScanning();
+  static Future<void> disposeAll() async {
+    await stopScanning();
     stopListening();
     _nearbyController.close();
     _alertController.close();

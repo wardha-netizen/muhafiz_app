@@ -11,7 +11,7 @@ class SettingsProvider with ChangeNotifier {
     loadSettings(); // Calling the public method now
   }
 
-  void toggleTheme(bool isDark) async {
+  Future<void> toggleTheme(bool isDark) async {
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
 
