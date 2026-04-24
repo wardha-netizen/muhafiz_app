@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../core/app_routes.dart';
+import '../../services/settings_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -118,10 +120,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<SettingsProvider>(context);
+    final isDark = themeProvider.themeMode == ThemeMode.dark;
+    final bg = isDark ? const Color(0xFF121212) : const Color(0xFFF6F7FB);
+    final surface = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final onSurface = isDark ? Colors.white : Colors.black87;
+    final onMuted = isDark ? Colors.white70 : Colors.black54;
+    final onFaint = isDark ? Colors.white38 : Colors.black45;
+    final dividerColor = isDark ? Colors.white10 : Colors.black12.withValues(alpha: 0.08);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Safety Profile', style: TextStyle(color: Colors.white)),
+        title: Text('Safety Profile', style: TextStyle(color: onSurface)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -130,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => setState(() => _isEditing = !_isEditing),
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: Icon(Icons.logout, color: onSurface),
             onPressed: _logout,
           ),
         ],
@@ -142,8 +153,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.data!.exists) {
-            return const Center(
-              child: Text('Profile not found.', style: TextStyle(color: Colors.white)),
+            return Center(
+              child: Text('Profile not found.', style: TextStyle(color: onSurface)),
             );
           }
           final userData = snapshot.data!.data() as Map<String, dynamic>;
@@ -158,14 +169,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 60,
-                      backgroundColor: Colors.grey[900],
+                      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[200],
                       backgroundImage: _imageFile != null
                           ? FileImage(_imageFile!) as ImageProvider
                           : (_profileImageUrl != null
                               ? NetworkImage(_profileImageUrl!)
                               : null),
                       child: (_imageFile == null && _profileImageUrl == null)
-                          ? const Icon(Icons.person, size: 60, color: Colors.white24)
+                          ? Icon(
+                              Icons.person,
+                              size: 60,
+                              color: isDark ? Colors.white24 : Colors.black26,
+                            )
                           : null,
                     ),
                     if (_isEditing)
@@ -184,21 +199,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                _buildTextField('Full Name', _nameController, Icons.person_outline, enabled: _isEditing),
-                _buildTextField('My Phone', _phoneController, Icons.phone_android, enabled: _isEditing),
-                _buildTextField('Email', _emailController, Icons.email_outlined, enabled: false),
-                const Divider(color: Colors.white10, height: 40),
-                _buildBloodGroupDropdown(enabled: _isEditing),
-                _buildVolunteerSwitch(enabled: _isEditing),
+                _buildTextField(
+                  'Full Name',
+                  _nameController,
+                  Icons.person_outline,
+                  enabled: _isEditing,
+                  surface: surface,
+                  onSurface: onSurface,
+                  onFaint: onFaint,
+                ),
+                _buildTextField(
+                  'My Phone',
+                  _phoneController,
+                  Icons.phone_android,
+                  enabled: _isEditing,
+                  surface: surface,
+                  onSurface: onSurface,
+                  onFaint: onFaint,
+                ),
+                _buildTextField(
+                  'Email',
+                  _emailController,
+                  Icons.email_outlined,
+                  enabled: false,
+                  surface: surface,
+                  onSurface: onSurface,
+                  onFaint: onFaint,
+                ),
+                Divider(color: dividerColor, height: 40),
+                _buildBloodGroupDropdown(
+                  enabled: _isEditing,
+                  isDark: isDark,
+                  surface: surface,
+                  onSurface: onSurface,
+                ),
+                _buildVolunteerSwitch(
+                  enabled: _isEditing,
+                  onSurface: onSurface,
+                ),
                 const SizedBox(height: 20),
-                _headerText('Guardian Details'),
-                _buildTextField('Guardian Name', _relativeNameController, Icons.security, enabled: _isEditing),
-                _buildTextField('Guardian Phone', _relativePhoneController, Icons.contact_phone, enabled: _isEditing),
+                _headerText('Guardian Details', color: onMuted),
+                _buildTextField(
+                  'Guardian Name',
+                  _relativeNameController,
+                  Icons.security,
+                  enabled: _isEditing,
+                  surface: surface,
+                  onSurface: onSurface,
+                  onFaint: onFaint,
+                ),
+                _buildTextField(
+                  'Guardian Phone',
+                  _relativePhoneController,
+                  Icons.contact_phone,
+                  enabled: _isEditing,
+                  surface: surface,
+                  onSurface: onSurface,
+                  onFaint: onFaint,
+                ),
                 const SizedBox(height: 20),
                 TextButton.icon(
                   onPressed: _changePassword,
                   icon: const Icon(Icons.lock_reset, color: Colors.redAccent),
-                  label: const Text('Change Password', style: TextStyle(color: Colors.redAccent)),
+                  label: const Text('Change Password',
+                      style: TextStyle(color: Colors.redAccent)),
                 ),
                 if (_isEditing) ...[
                   const SizedBox(height: 30),
@@ -220,35 +284,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _headerText(String text) => Container(
+  Widget _headerText(String text, {required Color color}) => Container(
     alignment: Alignment.centerLeft,
     padding: const EdgeInsets.only(bottom: 10),
     child: Text(
       text,
-      style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
+      style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold),
     ),
   );
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {bool enabled = true}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool enabled = true,
+    required Color surface,
+    required Color onSurface,
+    required Color onFaint,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: TextField(
         controller: controller,
         enabled: enabled,
-        style: TextStyle(color: enabled ? Colors.white : Colors.white38),
+        style: TextStyle(color: enabled ? onSurface : onFaint),
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: enabled ? Colors.redAccent : Colors.white24),
+          prefixIcon: Icon(icon,
+              color: enabled
+                  ? Colors.redAccent
+                  : (Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white24
+                      : Colors.black26)),
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white38),
+          labelStyle: TextStyle(color: onFaint),
           filled: true,
-          fillColor: const Color(0xFF1E1E1E),
+          fillColor: surface,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         ),
       ),
     );
   }
 
-  Widget _buildBloodGroupDropdown({required bool enabled}) {
+  Widget _buildBloodGroupDropdown({
+    required bool enabled,
+    required bool isDark,
+    required Color surface,
+    required Color onSurface,
+  }) {
     return AbsorbPointer(
       absorbing: !enabled,
       child: Opacity(
@@ -257,15 +339,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           margin: const EdgeInsets.only(bottom: 15),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: surface,
             borderRadius: BorderRadius.circular(12),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedBloodGroup,
-              dropdownColor: const Color(0xFF1E1E1E),
+              dropdownColor: surface,
               isExpanded: true,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: onSurface, fontSize: 16),
               items: _bloodGroups
                   .map((g) => DropdownMenuItem(value: g, child: Text('Blood Group: $g')))
                   .toList(),
@@ -277,10 +359,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildVolunteerSwitch({required bool enabled}) => SwitchListTile(
-    title: const Text('Volunteer Mode', style: TextStyle(color: Colors.white)),
-    value: _isVolunteer,
-    onChanged: enabled ? (v) => setState(() => _isVolunteer = v) : null,
-    activeThumbColor: Colors.redAccent,
-  );
+  Widget _buildVolunteerSwitch({
+    required bool enabled,
+    required Color onSurface,
+  }) =>
+      SwitchListTile(
+        title: Text('Volunteer Mode', style: TextStyle(color: onSurface)),
+        value: _isVolunteer,
+        onChanged: enabled ? (v) => setState(() => _isVolunteer = v) : null,
+        activeThumbColor: Colors.redAccent,
+      );
 }

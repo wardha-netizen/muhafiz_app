@@ -210,6 +210,8 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
   String _location = 'Fetching location…';
   Position? _lastPosition;
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
   @override
   void initState() {
     super.initState();
@@ -263,25 +265,38 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bg = _isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF6F7FB);
+    final surface = _isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final onSurface = _isDark ? Colors.white : Colors.black87;
+    final onSurfaceMuted = _isDark ? Colors.white54 : Colors.black54;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Madgar Portal',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text('مددگار پورٹل — Emergency Services',
-                style: TextStyle(color: Colors.white54, fontSize: 11)),
+            Text(
+              'Madgar Portal',
+              style: TextStyle(
+                color: onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            Text(
+              'مددگار پورٹل — Emergency Services',
+              style: TextStyle(color: onSurfaceMuted, fontSize: 11),
+            ),
           ],
         ),
         actions: [_buildBuzzerToggle()],
       ),
       body: Column(
         children: [
-          _buildContextBanner(),
+          _buildContextBanner(surface: surface, onSurface: onSurface, onMuted: onSurfaceMuted),
           if (_buzzer.isActive) _buildBuzzerStatus(),
           Expanded(
             child: GridView.builder(
@@ -293,7 +308,12 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
                 childAspectRatio: 1.05,
               ),
               itemCount: _services.length,
-              itemBuilder: (ctx, i) => _buildServiceCard(_services[i]),
+              itemBuilder: (ctx, i) => _buildServiceCard(
+                _services[i],
+                surface: surface,
+                onSurface: onSurface,
+                onMuted: _isDark ? Colors.white38 : Colors.black54,
+              ),
             ),
           ),
         ],
@@ -302,6 +322,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
   }
 
   Widget _buildBuzzerToggle() {
+    final onMuted = _isDark ? Colors.white54 : Colors.black54;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
@@ -318,10 +339,12 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
           decoration: BoxDecoration(
             color: _buzzer.isActive
                 ? Colors.red.withValues(alpha: 0.25)
-                : Colors.white12,
+                : (_isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.04)),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _buzzer.isActive ? Colors.red : Colors.white24,
+              color: _buzzer.isActive
+                  ? Colors.red
+                  : (_isDark ? Colors.white24 : Colors.black12.withValues(alpha: 0.08)),
             ),
           ),
           child: Row(
@@ -330,13 +353,13 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
               Icon(
                 _buzzer.isActive ? Icons.volume_up : Icons.volume_off,
                 size: 16,
-                color: _buzzer.isActive ? Colors.red : Colors.white54,
+                color: _buzzer.isActive ? Colors.red : onMuted,
               ),
               const SizedBox(width: 6),
               Text(
                 _buzzer.isActive ? 'BUZZER ON' : 'BUZZER',
                 style: TextStyle(
-                  color: _buzzer.isActive ? Colors.red : Colors.white54,
+                  color: _buzzer.isActive ? Colors.red : onMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -348,14 +371,27 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
     );
   }
 
-  Widget _buildContextBanner() {
+  Widget _buildContextBanner({
+    required Color surface,
+    required Color onSurface,
+    required Color onMuted,
+  }) {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+        border: Border.all(color: Colors.blue.withValues(alpha: _isDark ? 0.3 : 0.18)),
+        boxShadow: _isDark
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -366,12 +402,12 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_userName,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: onSurface,
                         fontWeight: FontWeight.bold,
                         fontSize: 13)),
                 Text(_location,
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    style: TextStyle(color: onMuted, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -418,14 +454,28 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
     );
   }
 
-  Widget _buildServiceCard(_Service svc) {
+  Widget _buildServiceCard(
+    _Service svc, {
+    required Color surface,
+    required Color onSurface,
+    required Color onMuted,
+  }) {
     return GestureDetector(
       onTap: () => _openServiceSheet(svc),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: svc.color.withValues(alpha: 0.45)),
+          boxShadow: _isDark
+              ? const []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -460,13 +510,13 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
             ),
             const Spacer(),
             Text(svc.name,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: onSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 13)),
             const SizedBox(height: 4),
             Text(svc.description,
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: TextStyle(color: onMuted, fontSize: 10),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -481,7 +531,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: _isDark ? const Color(0xFF1A1A1A) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => DraggableScrollableSheet(

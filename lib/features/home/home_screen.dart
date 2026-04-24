@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 15),
-                  _buildLiveFeed(),
+                  _buildLiveFeed(isDark),
                 ],
               ],
             ),
@@ -280,53 +280,81 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ];
 
+    final bg = isDark ? const Color(0xFF121212) : Colors.white;
+    final surface = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F7FB);
+    final onSurface = isDark ? Colors.white70 : Colors.black87;
+    final labelColor = isDark ? Colors.white54 : Colors.black45;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           _t('Quick Actions', 'فوری اقدامات'),
           style: TextStyle(
-            color: isDark ? Colors.white54 : Colors.black45,
+            color: labelColor,
             fontSize: 12,
             letterSpacing: 1.2,
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: actions.map((a) {
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: GestureDetector(
-                  onTap: a.onTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: a.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: a.color.withValues(alpha: 0.4)),
+        Container(
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.05),
+            ),
+            boxShadow: isDark
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(a.icon, color: a.color, size: 24),
-                        const SizedBox(height: 6),
-                        Text(
-                          a.label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: isDark ? Colors.white70 : Colors.black87,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  ],
+          ),
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: actions.map((a) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: a.onTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        // Keep Quick Actions neutral to match theme (no tinted tiles).
+                        color: isDark ? const Color(0xFF121212) : bg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.06),
                         ),
-                      ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(a.icon, color: a.color, size: 24),
+                          const SizedBox(height: 6),
+                          Text(
+                            a.label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: onSurface,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
@@ -392,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLiveFeed() {
+  Widget _buildLiveFeed(bool isDark) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('emergencies')
@@ -441,6 +469,11 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
+        final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        final titleColor = isDark ? Colors.white : Colors.black87;
+        final subColor = isDark ? Colors.white54 : Colors.black54;
+        final metaColor = isDark ? Colors.white38 : Colors.black45;
+
         return Column(
           children: filtered.map((d) {
             final data = d.data() as Map<String, dynamic>;
@@ -453,9 +486,18 @@ class _HomeScreenState extends State<HomeScreen> {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: cardBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+                boxShadow: isDark
+                    ? const []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 14,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
               ),
               child: Row(
                 children: [
@@ -467,27 +509,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           type,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: titleColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Reported by: $reporter',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          style: TextStyle(color: subColor, fontSize: 12),
                         ),
                         if (location.isNotEmpty)
                           Text(
                             location,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                            style: TextStyle(color: metaColor, fontSize: 11),
                           ),
                         if (ts != null)
                           Text(
                             '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}',
-                            style: const TextStyle(color: Colors.white24, fontSize: 11),
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white24
+                                  : Colors.black38.withValues(alpha: 0.7),
+                              fontSize: 11,
+                            ),
                           ),
                       ],
                     ),
