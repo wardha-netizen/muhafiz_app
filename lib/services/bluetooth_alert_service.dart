@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vibration/vibration.dart';
+import 'emergency_buzzer_service.dart';
 
 /// A nearby MUHAFIZ user detected via BLE scan.
 class NearbyDevice {
@@ -30,6 +30,7 @@ class NearbyDevice {
 
 /// An emergency alert received from a nearby MUHAFIZ user via Firebase.
 class ProximityAlert {
+  final String alertId;
   final String userId;
   final String userName;
   final String emergencyType;
@@ -37,6 +38,7 @@ class ProximityAlert {
   final DateTime timestamp;
 
   const ProximityAlert({
+    required this.alertId,
     required this.userId,
     required this.userName,
     required this.emergencyType,
@@ -54,6 +56,7 @@ class ProximityAlert {
 class BluetoothAlertService {
   static StreamSubscription<List<ScanResult>>? _scanSub;
   static StreamSubscription<QuerySnapshot>? _firestoreSub;
+  static final Set<String> _processedAlertDocIds = <String>{};
 
   static final _nearbyController =
       StreamController<List<NearbyDevice>>.broadcast();
@@ -194,12 +197,19 @@ class BluetoothAlertService {
         .listen((snap) async {
       for (final change in snap.docChanges) {
         if (change.type != DocumentChangeType.added) continue;
+        if (_processedAlertDocIds.contains(change.doc.id)) continue;
+        _processedAlertDocIds.add(change.doc.id);
+        // keep memory bounded
+        if (_processedAlertDocIds.length > 300) {
+          _processedAlertDocIds.remove(_processedAlertDocIds.first);
+        }
         final data = change.doc.data() as Map<String, dynamic>;
 
         // Don't alert yourself
         if (data['userId'] == user?.uid) continue;
 
         final alert = ProximityAlert(
+          alertId: change.doc.id,
           userId: data['userId'] ?? '',
           userName: data['userName'] ?? 'Unknown',
           emergencyType: data['emergencyType'] ?? 'SOS',
@@ -209,10 +219,9 @@ class BluetoothAlertService {
 
         _alertController.add(alert);
 
-        // Buzz the receiving device
-        if (await Vibration.hasVibrator()) {
-          Vibration.vibrate(pattern: [0, 600, 200, 600, 200, 600]);
-        }
+        // Trigger an audible buzzer on the receiving device as well.
+        // This makes nearby people aware of the emergency.
+        unawaited(EmergencyBuzzerService.instance.start());
       }
     });
   }

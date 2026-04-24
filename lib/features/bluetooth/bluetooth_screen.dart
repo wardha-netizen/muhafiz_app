@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 import '../../services/bluetooth_alert_service.dart';
+import '../../services/emergency_buzzer_service.dart';
 
 class BluetoothScreen extends StatefulWidget {
   const BluetoothScreen({super.key});
@@ -121,40 +122,53 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
     }
   }
 
+  Widget _buildAlertDialog(ProximityAlert alert) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A0000),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.red, width: 2),
+      ),
+      title: const Row(
+        children: [
+          Icon(Icons.warning_amber, color: Colors.red),
+          SizedBox(width: 8),
+          Text('EMERGENCY NEARBY',
+              style: TextStyle(color: Colors.red, fontSize: 16)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _alertRow('From', alert.userName),
+          _alertRow('Type', alert.emergencyType),
+          _alertRow(
+              'Location', alert.location.isNotEmpty ? alert.location : 'Nearby'),
+          _alertRow('Time', _timeAgo(alert.timestamp)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            EmergencyBuzzerService.instance.stop();
+            Navigator.pop(context);
+          },
+          child: const Text('OK', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
+  }
+
   void _showAlertDialog(ProximityAlert alert) {
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A0000),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.red, width: 2),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber, color: Colors.red),
-            SizedBox(width: 8),
-            Text('EMERGENCY NEARBY', style: TextStyle(color: Colors.red, fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _alertRow('From', alert.userName),
-            _alertRow('Type', alert.emergencyType),
-            _alertRow('Location', alert.location.isNotEmpty ? alert.location : 'Nearby'),
-            _alertRow('Time', _timeAgo(alert.timestamp)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+      barrierDismissible: true,
+      builder: (_) => _buildAlertDialog(alert),
+    ).then((_) {
+      // Treat dialog dismissal (tap outside/back) as acknowledgement.
+      EmergencyBuzzerService.instance.stop();
+    });
   }
 
   Widget _alertRow(String label, String value) {
