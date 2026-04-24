@@ -1,42 +1,61 @@
 import 'dart:convert';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 class PlacesService {
-  PlacesService({String? apiKey}) : _apiKey = apiKey ?? _defaultApiKey;
-
-  static const String _defaultApiKey = String.fromEnvironment(
-    'GOOGLE_MAPS_API_KEY',
-    defaultValue: '',
-  );
-
-  final String _apiKey;
-
   Future<List<Map<String, dynamic>>> fetchNearbyPlaces({
     required LatLng location,
     required String category,
     int radiusMeters = 3000,
   }) async {
-    if (_apiKey.isEmpty) {
-      throw Exception(
-        'Google Maps API key missing. Pass apiKey or set --dart-define=GOOGLE_MAPS_API_KEY=...',
-      );
+    final amenity = _categoryToAmenity(category);
+    final query = '''
+[out:json][timeout:15];
+node["amenity"="$amenity"](around:$radiusMeters,${location.latitude},${location.longitude});
+out center 20;
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://overpass-api.de/api/interpreter'),
+            body: query,
+          )
+          .timeout(const Duration(seconds: 18));
+
+      if (response.statusCode != 200) return [];
+
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      final elements = (data['elements'] as List? ?? []).cast<Map<String, dynamic>>();
+
+      return elements.map((e) {
+        final tags = (e['tags'] as Map<String, dynamic>?) ?? {};
+        final lat = (e['lat'] as num?)?.toDouble();
+        final lng = (e['lon'] as num?)?.toDouble();
+        return {
+          'name': tags['name'] ?? amenity,
+          'lat': lat ?? 0.0,
+          'lng': lng ?? 0.0,
+          'phone': tags['phone'],
+        };
+      }).where((p) => p['lat'] != 0.0 && p['lng'] != 0.0).toList();
+    } catch (_) {
+      return [];
     }
+  }
 
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      '?location=${location.latitude},${location.longitude}'
-      '&radius=$radiusMeters'
-      '&type=$category'
-      '&key=$_apiKey',
-    );
-
-    final response = await http.get(url);
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch nearby places: ${response.statusCode}');
+  String _categoryToAmenity(String category) {
+    switch (category) {
+      case 'fire_station':
+        return 'fire_station';
+      case 'hospital':
+        return 'hospital';
+      case 'police':
+        return 'police';
+      case 'park':
+        return 'park';
+      default:
+        return 'hospital';
     }
-
-    final data = json.decode(response.body) as Map<String, dynamic>;
-    return List<Map<String, dynamic>>.from(data['results'] ?? const []);
   }
 }

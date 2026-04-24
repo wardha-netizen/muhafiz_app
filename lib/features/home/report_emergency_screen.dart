@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -179,10 +181,46 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     return _sendInstantAlerts();
   }
 
+  Future<String?> _uploadMedia(String filePath, String folder) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+      final ext = filePath.split('.').last;
+      final name = '${uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('emergency_media/$folder/$name');
+      await ref.putFile(File(filePath));
+      return await ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('Media upload error ($folder): $e');
+      return null;
+    }
+  }
+
   Future<void> _saveEmergencyReport(String type) async {
     final user = FirebaseAuth.instance.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final userName = prefs.getString('name1') ?? 'Unknown User';
+    final contactPhone = prefs.getString('contact1') ?? '';
+    final contactName = prefs.getString('contactName1') ?? '';
+    final emergencyContact = contactPhone.isNotEmpty
+        ? (contactName.isNotEmpty ? '$contactName ($contactPhone)' : contactPhone)
+        : '';
+
+    final photoUrl = _photoProof != null
+        ? await _uploadMedia(_photoProof!.path, 'photos')
+        : null;
+    final videoUrl = _videoProof != null
+        ? await _uploadMedia(_videoProof!.path, 'videos')
+        : null;
+    final voiceUrl = _voiceProofPath != null
+        ? await _uploadMedia(_voiceProofPath!, 'voice')
+        : null;
+
     await FirebaseFirestore.instance.collection('emergencies').add({
       'userId': user?.uid,
+      'userName': userName,
+      'emergencyContact': emergencyContact,
       'type': type,
       'status': 'active',
       'location': _currentAddress,
@@ -190,6 +228,9 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
       'hasPhoto': _photoProof != null,
       'hasVideo': _videoProof != null,
       'hasVoice': _voiceProofPath != null,
+      'photoUrl': photoUrl,
+      'videoUrl': videoUrl,
+      'voiceUrl': voiceUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
   }

@@ -26,8 +26,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Replace with your actual Google Maps API key or pass via --dart-define
-        manifestPlaceholders["MAPS_API_KEY"] = ""
     }
 
     buildTypes {

@@ -31,74 +31,185 @@ class _Poi {
 
 List<_Poi> _staticKarachiPois() => [
       // ── Hospitals ──────────────────────────────────────────────────────────
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8592, 67.0694),
-          name: 'Aga Khan University Hospital', phone: '021-111-911-911', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8704, 67.0327),
-          name: 'Jinnah Postgraduate Medical Centre', phone: '021-99201300', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8604, 67.0301),
-          name: 'Civil Hospital Karachi', phone: '021-99215740', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8815, 67.0604),
-          name: 'Liaquat National Hospital', phone: '021-34412442', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8895, 67.1027),
-          name: 'Indus Hospital Korangi', phone: '021-35110000', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8725, 67.0400),
-          name: 'DOW University Hospital', phone: '021-99261300', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8503, 67.0139),
-          name: 'South City Hospital', phone: '021-35860001', isStatic: true),
-      const _Poi(type: _PoiType.hospital, pos: LatLng(24.9367, 67.0747),
-          name: 'KMDC Teaching Hospital', phone: '021-36616006', isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8592, 67.0694),
+          name: 'Aga Khan University Hospital',
+          phone: '021-111-911-911',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8704, 67.0327),
+          name: 'Jinnah Postgraduate Medical Centre',
+          phone: '021-99201300',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8604, 67.0301),
+          name: 'Civil Hospital Karachi',
+          phone: '021-99215740',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8815, 67.0604),
+          name: 'Liaquat National Hospital',
+          phone: '021-34412442',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8895, 67.1027),
+          name: 'Indus Hospital Korangi',
+          phone: '021-35110000',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8725, 67.0400),
+          name: 'DOW University Hospital',
+          phone: '021-99261300',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.8503, 67.0139),
+          name: 'South City Hospital',
+          phone: '021-35860001',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.hospital,
+          pos: LatLng(24.9367, 67.0747),
+          name: 'KMDC Teaching Hospital',
+          phone: '021-36616006',
+          isStatic: true),
 
       // ── Police Stations ────────────────────────────────────────────────────
-      const _Poi(type: _PoiType.police, pos: LatLng(24.8604, 67.0194),
-          name: 'Saddar Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.8241, 67.0330),
-          name: 'Clifton Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.8711, 67.0195),
-          name: 'Garden Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.7906, 67.0595),
-          name: 'DHA Phase-II Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.9087, 67.0187),
-          name: 'SITE Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.8375, 67.1308),
-          name: 'Korangi Police Station', phone: '15', isStatic: true),
-      const _Poi(type: _PoiType.police, pos: LatLng(24.9614, 67.0628),
-          name: 'Surjani Police Station', phone: '15', isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.8604, 67.0194),
+          name: 'Saddar Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.8241, 67.0330),
+          name: 'Clifton Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.8711, 67.0195),
+          name: 'Garden Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.7906, 67.0595),
+          name: 'DHA Phase-II Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.9087, 67.0187),
+          name: 'SITE Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.8375, 67.1308),
+          name: 'Korangi Police Station',
+          phone: '15',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.police,
+          pos: LatLng(24.9614, 67.0628),
+          name: 'Surjani Police Station',
+          phone: '15',
+          isStatic: true),
 
       // ── Fire Stations ──────────────────────────────────────────────────────
-      const _Poi(type: _PoiType.fire, pos: LatLng(24.8736, 67.0339),
-          name: 'Karachi Fire Brigade HQ (Saddar)', phone: '16', isStatic: true),
-      const _Poi(type: _PoiType.fire, pos: LatLng(24.8169, 67.0228),
-          name: 'Clifton Fire Station', phone: '16', isStatic: true),
-      const _Poi(type: _PoiType.fire, pos: LatLng(24.9614, 67.0628),
-          name: 'North Karachi Fire Station', phone: '16', isStatic: true),
-      const _Poi(type: _PoiType.fire, pos: LatLng(24.8900, 67.0400),
-          name: 'Lyari Fire Station', phone: '021-32262030', isStatic: true),
+      const _Poi(
+          type: _PoiType.fire,
+          pos: LatLng(24.8736, 67.0339),
+          name: 'Karachi Fire Brigade HQ (Saddar)',
+          phone: '16',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.fire,
+          pos: LatLng(24.8169, 67.0228),
+          name: 'Clifton Fire Station',
+          phone: '16',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.fire,
+          pos: LatLng(24.9614, 67.0628),
+          name: 'North Karachi Fire Station',
+          phone: '16',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.fire,
+          pos: LatLng(24.8900, 67.0400),
+          name: 'Lyari Fire Station',
+          phone: '021-32262030',
+          isStatic: true),
 
       // ── Ambulance / Welfare ────────────────────────────────────────────────
-      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8601, 67.0087),
-          name: 'Edhi Foundation HQ (Mithadar)', phone: '115', isStatic: true),
-      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8950, 67.0750),
-          name: 'Edhi Centre North Nazimabad', phone: '115', isStatic: true),
-      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.9231, 67.0947),
-          name: 'Chhipa Welfare Gulshan', phone: '1020', isStatic: true),
-      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8592, 67.0694),
-          name: 'Aman Foundation Ambulance', phone: '1102', isStatic: true),
+      const _Poi(
+          type: _PoiType.ambulance,
+          pos: LatLng(24.8601, 67.0087),
+          name: 'Edhi Foundation HQ (Mithadar)',
+          phone: '115',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.ambulance,
+          pos: LatLng(24.8950, 67.0750),
+          name: 'Edhi Centre North Nazimabad',
+          phone: '115',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.ambulance,
+          pos: LatLng(24.9231, 67.0947),
+          name: 'Chhipa Welfare Gulshan',
+          phone: '1020',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.ambulance,
+          pos: LatLng(24.8592, 67.0694),
+          name: 'Aman Foundation Ambulance',
+          phone: '1102',
+          isStatic: true),
 
       // ── Evacuation Grounds / Parks ─────────────────────────────────────────
-      const _Poi(type: _PoiType.park, pos: LatLng(24.8723, 67.0259),
-          name: 'Nishtar Park (Evacuation Ground)', isStatic: true),
-      const _Poi(type: _PoiType.park, pos: LatLng(24.8102, 67.0228),
-          name: 'Bagh Ibn Qasim (Clifton)', isStatic: true),
-      const _Poi(type: _PoiType.park, pos: LatLng(24.8459, 67.0728),
-          name: 'Hill Park (Evacuation Point)', isStatic: true),
-      const _Poi(type: _PoiType.park, pos: LatLng(24.8019, 67.0339),
-          name: 'Seaview Ground (Emergency Muster)', isStatic: true),
-      const _Poi(type: _PoiType.park, pos: LatLng(24.9021, 67.0659),
-          name: 'Gulshan-e-Iqbal Park', isStatic: true),
+      const _Poi(
+          type: _PoiType.park,
+          pos: LatLng(24.8723, 67.0259),
+          name: 'Nishtar Park (Evacuation Ground)',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.park,
+          pos: LatLng(24.8102, 67.0228),
+          name: 'Bagh Ibn Qasim (Clifton)',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.park,
+          pos: LatLng(24.8459, 67.0728),
+          name: 'Hill Park (Evacuation Point)',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.park,
+          pos: LatLng(24.8019, 67.0339),
+          name: 'Seaview Ground (Emergency Muster)',
+          isStatic: true),
+      const _Poi(
+          type: _PoiType.park,
+          pos: LatLng(24.9021, 67.0659),
+          name: 'Gulshan-e-Iqbal Park',
+          isStatic: true),
 
       // ── Water Points ───────────────────────────────────────────────────────
-      const _Poi(type: _PoiType.water, pos: LatLng(24.8756, 67.0287),
-          name: 'KWSB HQ (Water Emergency: 1630)', phone: '1630', isStatic: true),
+      const _Poi(
+          type: _PoiType.water,
+          pos: LatLng(24.8756, 67.0287),
+          name: 'KWSB HQ (Water Emergency: 1630)',
+          phone: '1630',
+          isStatic: true),
     ];
 
 // ── Screen ──────────────────────────────────────────────────────────────────
@@ -131,8 +242,8 @@ class _KarachiEmergencyMapScreenState extends State<KarachiEmergencyMapScreen> {
     _getUserLocation();
     _tryLoadOverpassPois();
 
-    // Live location update every 5 seconds
-    _locationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Live location update every 30 seconds (5s was too aggressive for battery)
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _getUserLocation();
     });
   }
@@ -156,7 +267,8 @@ class _KarachiEmergencyMapScreenState extends State<KarachiEmergencyMapScreen> {
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 6));
 
       if (mounted) {
@@ -243,7 +355,9 @@ out center;
           } else if (manMade == 'water_tower' || amenity == 'water_point') {
             type = _PoiType.water;
           }
-          if (type == null) { continue; }
+          if (type == null) {
+            continue;
+          }
 
           parsed.add(_Poi(
             type: type,
@@ -284,37 +398,58 @@ out center;
   // ── Styling helpers ────────────────────────────────────────────────────────
   Color _poiColor(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital: return Colors.red.shade700;
-      case _PoiType.police: return Colors.blue.shade700;
-      case _PoiType.fire: return Colors.orange.shade700;
-      case _PoiType.ambulance: return Colors.green.shade600;
-      case _PoiType.pharmacy: return Colors.teal.shade600;
-      case _PoiType.park: return Colors.lightGreen.shade700;
-      case _PoiType.water: return Colors.cyan.shade700;
+      case _PoiType.hospital:
+        return Colors.red.shade700;
+      case _PoiType.police:
+        return Colors.blue.shade700;
+      case _PoiType.fire:
+        return Colors.orange.shade700;
+      case _PoiType.ambulance:
+        return Colors.green.shade600;
+      case _PoiType.pharmacy:
+        return Colors.teal.shade600;
+      case _PoiType.park:
+        return Colors.lightGreen.shade700;
+      case _PoiType.water:
+        return Colors.cyan.shade700;
     }
   }
 
   IconData _poiIcon(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital: return Icons.local_hospital;
-      case _PoiType.police: return Icons.local_police;
-      case _PoiType.fire: return Icons.fire_truck;
-      case _PoiType.ambulance: return Icons.emergency;
-      case _PoiType.pharmacy: return Icons.medical_services;
-      case _PoiType.park: return Icons.park;
-      case _PoiType.water: return Icons.water_drop;
+      case _PoiType.hospital:
+        return Icons.local_hospital;
+      case _PoiType.police:
+        return Icons.local_police;
+      case _PoiType.fire:
+        return Icons.fire_truck;
+      case _PoiType.ambulance:
+        return Icons.emergency;
+      case _PoiType.pharmacy:
+        return Icons.medical_services;
+      case _PoiType.park:
+        return Icons.park;
+      case _PoiType.water:
+        return Icons.water_drop;
     }
   }
 
   String _poiLabel(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital: return 'Hospital';
-      case _PoiType.police: return 'Police';
-      case _PoiType.fire: return 'Fire';
-      case _PoiType.ambulance: return 'Ambulance';
-      case _PoiType.pharmacy: return 'Pharmacy';
-      case _PoiType.park: return 'Evacuation';
-      case _PoiType.water: return 'Water';
+      case _PoiType.hospital:
+        return 'Hospital';
+      case _PoiType.police:
+        return 'Police';
+      case _PoiType.fire:
+        return 'Fire';
+      case _PoiType.ambulance:
+        return 'Ambulance';
+      case _PoiType.pharmacy:
+        return 'Pharmacy';
+      case _PoiType.park:
+        return 'Evacuation';
+      case _PoiType.water:
+        return 'Water';
     }
   }
 
@@ -360,7 +495,11 @@ out center;
           ),
           TextButton(
             onPressed: _tryLoadOverpassPois,
-            child: const Text('REFRESH', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+            child: const Text('REFRESH',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11)),
           ),
         ],
       ),
@@ -389,7 +528,11 @@ out center;
               selectedColor: _poiColor(t),
               backgroundColor: Colors.grey.shade800,
               onSelected: (v) => setState(() {
-                if (v) { _visible.add(t); } else { _visible.remove(t); }
+                if (v) {
+                  _visible.add(t);
+                } else {
+                  _visible.remove(t);
+                }
               }),
               visualDensity: VisualDensity.compact,
               showCheckmark: false,
@@ -436,7 +579,8 @@ out center;
                     BoxShadow(color: Colors.black38, blurRadius: 6),
                   ],
                 ),
-                child: Icon(Icons.my_location, size: 20, color: Colors.red.shade700),
+                child: Icon(Icons.my_location,
+                    size: 20, color: Colors.red.shade700),
               ),
             ),
             // POI markers
@@ -460,7 +604,8 @@ out center;
                               offset: Offset(0, 2)),
                         ],
                       ),
-                      child: Icon(_poiIcon(p.type), size: 18, color: Colors.white),
+                      child:
+                          Icon(_poiIcon(p.type), size: 18, color: Colors.white),
                     ),
                   ),
                 )),
