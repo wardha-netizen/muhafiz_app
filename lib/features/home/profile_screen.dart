@@ -6,11 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/app_routes.dart';
-<<<<<<< HEAD
 import '../../services/settings_provider.dart';
-=======
 import 'report_misuse_screen.dart';
->>>>>>> 51396596fdc0029cd7af2824c44aa8718959dbb2
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
