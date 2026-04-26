@@ -12,6 +12,7 @@ import 'emergency_contacts_screen.dart';
 import 'madgar_portal_screen.dart';
 import 'report_emergency_screen.dart';
 import 'profile_screen.dart';
+import 'volunteer_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +23,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  bool _isVolunteer = false;
   bool _isUrdu = false;
   final User? user = FirebaseAuth.instance.currentUser;
   String _currentUserName = 'MUHAFIZ User';
@@ -138,19 +138,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildMadgarPortalCard(),
                 const SizedBox(height: 24),
                 _buildVolunteerSection(isDark),
-                if (_isVolunteer) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    _t('Nearby Alerts', 'قریبی الرٹس'),
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildLiveFeed(isDark),
-                ],
                 const SizedBox(height: 24),
               ],
             ),
@@ -435,193 +422,108 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Volunteer section ───────────────────────────────────────────────────────
   Widget _buildVolunteerSection(bool isDark) {
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        _t('Volunteer Mode', 'رضاکارانہ موڈ'),
-        style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        _t('See & respond to nearby emergencies',
-            'قریبی ہنگامی صورتحال دیکھیں اور جواب دیں'),
-        style: TextStyle(
-            color: isDark ? Colors.white38 : Colors.black38, fontSize: 12),
-      ),
-      value: _isVolunteer,
-      activeThumbColor: Colors.redAccent,
-      onChanged: (v) => setState(() => _isVolunteer = v),
-    );
-  }
+    final surface = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F7FB);
+    final onFaint = isDark ? Colors.white38 : Colors.black45;
 
-  // ── Live feed ───────────────────────────────────────────────────────────────
-  Widget _buildLiveFeed(bool isDark) {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('emergencies')
-          .orderBy('timestamp', descending: true)
-          .limit(20)
+          .collection('users')
+          .doc(user?.uid)
           .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(color: Colors.redAccent),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Padding(
+      builder: (context, snap) {
+        final data = snap.data?.data() as Map<String, dynamic>? ?? {};
+        final isVolunteer = data['isVolunteer'] == true;
+
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const VolunteerDashboardScreen()),
+          ),
+          child: Container(
             padding: const EdgeInsets.all(16),
-            child: Text(
-              _t('Could not load emergencies.', 'ہنگامی صورتحال لوڈ نہیں ہو سکی۔'),
-              style: const TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-
-        final docs = snapshot.data?.docs ?? const [];
-        final filtered = docs.where((d) {
-          final status =
-              ((d.data() as Map)['status'] ?? '').toString().trim().toLowerCase();
-          return status.isEmpty || status == 'active' || status == 'critical';
-        }).toList();
-
-        if (filtered.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              _t('No recent emergencies right now.',
-                  'ابھی کوئی حالیہ ہنگامی صورتحال نہیں۔'),
-              style: const TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-
-        final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-        final titleColor = isDark ? Colors.white : Colors.black87;
-        final subColor = isDark ? Colors.white54 : Colors.black54;
-        final metaColor = isDark ? Colors.white38 : Colors.black45;
-
-        return Column(
-          children: filtered.map((d) {
-            final data = d.data() as Map<String, dynamic>;
-            final type = (data['type'] ?? 'Emergency').toString();
-            final reporter = (data['userName'] ?? 'Unknown').toString();
-            final location = (data['location'] ?? '').toString();
-            final ts = (data['timestamp'] as Timestamp?)?.toDate();
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.25)),
-                boxShadow: isDark
-                    ? const []
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isVolunteer
+                    ? Colors.green.withValues(alpha: 0.45)
+                    : isDark
+                        ? Colors.white12
+                        : Colors.black12,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber, color: Colors.redAccent),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(type,
-                            style: TextStyle(
-                                color: titleColor,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_t('Reported by', 'رپورٹ کرنے والا')}: $reporter',
-                          style: TextStyle(color: subColor, fontSize: 12),
-                        ),
-                        if (location.isNotEmpty)
-                          Text(location,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  TextStyle(color: metaColor, fontSize: 11)),
-                        if (ts != null)
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isVolunteer
+                        ? Colors.green.withValues(alpha: 0.14)
+                        : Colors.grey.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.volunteer_activism,
+                    color: isVolunteer ? Colors.green : Colors.grey,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
                           Text(
-                            '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}',
-                            style: TextStyle(color: metaColor, fontSize: 11),
+                            _t('Volunteer Mode', 'رضاکارانہ موڈ'),
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
-                      ],
-                    ),
+                          if (isVolunteer) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                _t('Active', 'فعال'),
+                                style: const TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        isVolunteer
+                            ? _t('View & respond to emergency reports',
+                                'ہنگامی رپورٹس دیکھیں اور جواب دیں')
+                            : _t(
+                                'View emergency feed — register as volunteer in Profile to respond',
+                                'ہنگامی فیڈ دیکھیں — جواب دینے کے لیے پروفائل میں رضاکار بنیں'),
+                        style: TextStyle(color: onFaint, fontSize: 11),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: user == null
-                        ? null
-                        : () => _volunteerForEmergency(emergencyId: d.id),
-                    child: Text(
-                      _t('Help', 'مدد'),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                ),
+                Icon(Icons.chevron_right, color: onFaint),
+              ],
+            ),
+          ),
         );
       },
     );
-  }
-
-  Future<void> _volunteerForEmergency({required String emergencyId}) async {
-    final uid = user?.uid;
-    if (uid == null) return;
-    try {
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final emerRef = FirebaseFirestore.instance
-            .collection('emergencies')
-            .doc(emergencyId);
-        final volRef = emerRef.collection('volunteers').doc(uid);
-        final existing = await tx.get(volRef);
-        if (existing.exists) return;
-        tx.set(volRef, {
-          'volunteerId': uid,
-          'volunteerName': _currentUserName,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-        tx.update(emerRef, {'volunteerCount': FieldValue.increment(1)});
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_t('You volunteered for this emergency.',
-            'آپ نے اس ہنگامی صورتحال میں رضاکاری کی۔')),
-        backgroundColor: Colors.green,
-      ));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            _t('Could not volunteer: $e', 'رضاکاری نہیں ہو سکی: $e')),
-        backgroundColor: Colors.red,
-      ));
-    }
   }
 
   // ── Bottom nav ──────────────────────────────────────────────────────────────
