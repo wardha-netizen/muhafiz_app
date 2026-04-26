@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -16,6 +15,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/settings_provider.dart';
+import '../../services/cloudinary_service.dart';
 import '../../core/localization/app_localizations.dart';
 import '../alerts/other_emergency_screen.dart';
 import 'relative_alert_status_screen.dart';
@@ -37,6 +37,7 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
+  bool _isSubmitting = false;
   XFile? _photoProof;
   XFile? _videoProof;
   String? _voiceProofPath;
@@ -180,20 +181,8 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     await _saveEmergencyReport(type);
   }
 
-  Future<String?> _uploadMedia(String filePath, String folder) async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-      final ext = filePath.split('.').last;
-      final name = '${uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('emergency_media/$folder/$name');
-      await ref.putFile(File(filePath));
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Media upload error ($folder): $e');
-      return null;
-    }
+  Future<String?> _uploadMedia(String filePath) async {
+    return CloudinaryService.uploadFile(File(filePath));
   }
 
   Future<void> _saveEmergencyReport(String type) async {
@@ -207,13 +196,13 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
         : '';
 
     final photoUrl = _photoProof != null
-        ? await _uploadMedia(_photoProof!.path, 'photos')
+        ? await _uploadMedia(_photoProof!.path)
         : null;
     final videoUrl = _videoProof != null
-        ? await _uploadMedia(_videoProof!.path, 'videos')
+        ? await _uploadMedia(_videoProof!.path)
         : null;
     final voiceUrl = _voiceProofPath != null
-        ? await _uploadMedia(_voiceProofPath!, 'voice')
+        ? await _uploadMedia(_voiceProofPath!)
         : null;
 
     await FirebaseFirestore.instance.collection('emergencies').add({
@@ -287,17 +276,43 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: textColor),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Text(
           _t('Report Emergency', 'ہنگامی رپورٹ'),
           style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         actions: [
-          TextButton(
-            onPressed: () => setState(() => _isUrdu = !_isUrdu),
-            child: Text(
-              _isUrdu ? 'English' : 'اردو',
-              style: const TextStyle(color: Colors.red),
+          // Language pill
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                _isUrdu ? 'EN' : 'اردو',
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
             ),
+          ),
+          // Theme toggle
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+              color: isDark ? Colors.amber : Colors.blueGrey,
+            ),
+            onPressed: () => Provider.of<SettingsProvider>(context, listen: false)
+                .toggleTheme(!isDark),
           ),
         ],
       ),
@@ -493,14 +508,23 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
             borderRadius: BorderRadius.circular(15),
           ),
         ),
-        onPressed: _handleSubmit,
-        child: Text(
-          _t('SUBMIT REPORT', 'رپورٹ جمع کریں'),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        onPressed: _isSubmitting ? null : _handleSubmit,
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                _t('SUBMIT REPORT', 'رپورٹ جمع کریں'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }
@@ -557,22 +581,38 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
       }
     }
 
-    await _executeProtocol(selectedType);
-    if (!mounted) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await _executeProtocol(selectedType);
+      if (!mounted) return;
 
-    final recipients = await _showContactAlertSheet();
-    if (!mounted) return;
+      _showSnackBar(
+        _t('Report submitted successfully!', 'رپورٹ کامیابی سے جمع ہو گئی!'),
+        Colors.green,
+      );
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RelativeAlertStatusScreen(
-          recipients: recipients,
-          emergencyType: selectedType,
-          locationText: _currentAddress,
+      final recipients = await _showContactAlertSheet();
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RelativeAlertStatusScreen(
+            recipients: recipients,
+            emergencyType: selectedType,
+            locationText: _currentAddress,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(
+        _t('Submission failed: $e', 'جمع کرانے میں ناکامی: $e'),
+        Colors.red,
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _openOtherTriage() async {

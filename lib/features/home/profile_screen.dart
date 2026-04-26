@@ -2,12 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_routes.dart';
 import '../../services/settings_provider.dart';
+import '../../services/cloudinary_service.dart';
 import 'report_misuse_screen.dart';
 import 'permissions_screen.dart';
 
@@ -106,18 +106,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
     setState(() => _isUploading = true);
     try {
-      // Read as bytes — more reliable than putFile across all Android versions
-      final bytes = await file.readAsBytes();
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures')
-          .child('${user!.uid}.jpg');
-      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      final url = await ref.getDownloadURL();
+      final url = await CloudinaryService.uploadFile(file);
+      if (url == null) throw Exception('Cloudinary returned no URL');
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user!.uid)
           .update({'profile_pic': url});
+
       if (!mounted) return;
       setState(() => _profileImageUrl = url);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -226,6 +222,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: onSurface),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: onSurface),
+          onPressed: () {
+            if (Navigator.canPop(context)) Navigator.pop(context);
+          },
+        ),
         actions: [
           // Language pill
           GestureDetector(
