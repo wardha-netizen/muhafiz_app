@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vibration/vibration.dart';
+import '../../services/settings_provider.dart';
 
 // ── Service model ───────────────────────────────────────────────────────────
 
@@ -17,6 +19,7 @@ class _Service {
   final IconData icon;
   final Color color;
   final String description;
+  final String descriptionUrdu;
   final String Function(String userName, String time, String location)
       draftMessage;
 
@@ -27,13 +30,12 @@ class _Service {
     required this.icon,
     required this.color,
     required this.description,
+    required this.descriptionUrdu,
     required this.draftMessage,
   });
 }
 
 // ── Buzzer logic ─────────────────────────────────────────────────────────────
-// Criteria: plays siren 3 s ON → 5 s OFF → repeat up to 5 cycles, then stops.
-// Stops early when: user taps "Stop" or "Acknowledged".
 
 class _BuzzerController {
   static const int maxCycles = 5;
@@ -67,7 +69,6 @@ class _BuzzerController {
     Vibration.vibrate(duration: 2800);
     onStateChanged?.call();
 
-    // After ON duration, stop sound and wait OFF duration
     _timer = Timer(onDuration, () async {
       await _player.stop();
       onStateChanged?.call();
@@ -102,6 +103,7 @@ final _services = [
     icon: Icons.local_police,
     color: Colors.blue.shade700,
     description: 'Crime, robbery, assault, threats',
+    descriptionUrdu: 'جرائم، ڈکیتی، حملہ، دھمکیاں',
     draftMessage: (u, t, l) =>
         'EMERGENCY COMPLAINT\n\nDate/Time: $t\nReporter: $u\nLocation: $l\n\n'
         'I am reporting a crime/emergency at the above location. '
@@ -115,6 +117,7 @@ final _services = [
     icon: Icons.emergency,
     color: Colors.green.shade700,
     description: 'Medical emergencies, accident victims',
+    descriptionUrdu: 'طبی ہنگامی صورتحال، حادثے کے متاثرین',
     draftMessage: (u, t, l) =>
         'MEDICAL EMERGENCY — AMBULANCE NEEDED\n\nTime: $t\nRequested by: $u\nLocation: $l\n\n'
         'A medical emergency has occurred. Patient requires immediate ambulance response. '
@@ -127,6 +130,7 @@ final _services = [
     icon: Icons.volunteer_activism,
     color: Colors.orange.shade700,
     description: 'Ambulance, funeral, blood bank, disaster relief',
+    descriptionUrdu: 'ایمبولینس، جنازہ، بلڈ بینک، آفات',
     draftMessage: (u, t, l) =>
         'CHIPA WELFARE ASSISTANCE REQUEST\n\nTime: $t\nRequested by: $u\nLocation: $l\n\n'
         'Emergency welfare assistance required at above location. '
@@ -139,6 +143,7 @@ final _services = [
     icon: Icons.fire_truck,
     color: Colors.red.shade700,
     description: 'Fire, explosion, structural collapse',
+    descriptionUrdu: 'آگ، دھماکہ، عمارت کا انہدام',
     draftMessage: (u, t, l) =>
         'FIRE EMERGENCY REPORT\n\nTime: $t\nReported by: $u\nLocation: $l\n\n'
         'Active fire / explosion reported at above location. '
@@ -152,6 +157,7 @@ final _services = [
     icon: Icons.handshake,
     color: Colors.teal.shade700,
     description: 'Disaster relief, food, shelter, flood rescue',
+    descriptionUrdu: 'آفات سے راحت، خوراک، پناہ، سیلاب بچاؤ',
     draftMessage: (u, t, l) =>
         'JDC DISASTER RELIEF REQUEST\n\nTime: $t\nRequested by: $u\nLocation: $l\n\n'
         'Disaster relief assistance urgently needed at above location. '
@@ -164,6 +170,7 @@ final _services = [
     icon: Icons.security,
     color: Colors.green.shade900,
     description: 'Security threats, terrorism, law enforcement',
+    descriptionUrdu: 'سیکیورٹی خطرات، دہشت گردی، قانون نافذ',
     draftMessage: (u, t, l) =>
         'SECURITY EMERGENCY — RANGERS NEEDED\n\nTime: $t\nLocation: $l\nReported by: $u\n\n'
         'A serious security threat / incident has been observed at the above location. '
@@ -176,6 +183,7 @@ final _services = [
     icon: Icons.flood,
     color: Colors.indigo.shade700,
     description: 'Natural disasters: floods, earthquakes, cyclones',
+    descriptionUrdu: 'قدرتی آفات: سیلاب، زلزلہ، طوفان',
     draftMessage: (u, t, l) =>
         'NDMA DISASTER REPORT\n\nTime: $t\nLocation: $l\nReported by: $u\n\n'
         'Natural disaster situation reported at above location. '
@@ -188,6 +196,7 @@ final _services = [
     icon: Icons.electric_bolt,
     color: Colors.yellow.shade800,
     description: 'Power emergency, fallen lines, electrocution',
+    descriptionUrdu: 'بجلی کی ہنگامی صورت، گرے ہوئے تار، برقی جھٹکا',
     draftMessage: (u, t, l) =>
         'ELECTRICAL EMERGENCY\n\nTime: $t\nLocation: $l\nReported by: $u\n\n'
         'Electrical emergency at above location — possible downed power line / electrocution risk. '
@@ -209,13 +218,16 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
   String _userName = 'MUHAFIZ User';
   String _location = 'Fetching location…';
   Position? _lastPosition;
+  bool _showUrdu = false;
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
   @override
   void initState() {
     super.initState();
-    _buzzer.onStateChanged = () { if (mounted) setState(() {}); };
+    _buzzer.onStateChanged = () {
+      if (mounted) setState(() {});
+    };
     _loadUserData();
     _fetchLocation();
   }
@@ -233,15 +245,18 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
       }
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         if (mounted) setState(() => _location = 'Karachi, Pakistan');
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 8));
       _lastPosition = pos;
-      final marks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final marks =
+          await placemarkFromCoordinates(pos.latitude, pos.longitude);
       final p = marks.first;
       if (mounted) {
         setState(() => _location =
@@ -279,7 +294,7 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Madgar Portal',
+              _showUrdu ? 'مددگار پورٹل' : 'Madgar Portal',
               style: TextStyle(
                 color: onSurface,
                 fontWeight: FontWeight.bold,
@@ -287,16 +302,25 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
               ),
             ),
             Text(
-              'مددگار پورٹل — Emergency Services',
+              _showUrdu
+                  ? 'ہنگامی خدمات — Emergency Services'
+                  : 'مددگار پورٹل — Emergency Services',
               style: TextStyle(color: onSurfaceMuted, fontSize: 11),
             ),
           ],
         ),
-        actions: [_buildBuzzerToggle()],
+        actions: [
+          _buildLanguageToggle(onSurface: onSurface),
+          _buildThemeToggle(onSurface: onSurface),
+          _buildBuzzerToggle(),
+        ],
       ),
       body: Column(
         children: [
-          _buildContextBanner(surface: surface, onSurface: onSurface, onMuted: onSurfaceMuted),
+          _buildContextBanner(
+              surface: surface,
+              onSurface: onSurface,
+              onMuted: onSurfaceMuted),
           if (_buzzer.isActive) _buildBuzzerStatus(),
           Expanded(
             child: GridView.builder(
@@ -321,6 +345,60 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
     );
   }
 
+  Widget _buildLanguageToggle({required Color onSurface}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: GestureDetector(
+        onTap: () => setState(() => _showUrdu = !_showUrdu),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _showUrdu
+                ? Colors.green.withValues(alpha: 0.18)
+                : (_isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.04)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _showUrdu
+                  ? Colors.green.withValues(alpha: 0.6)
+                  : (_isDark
+                      ? Colors.white24
+                      : Colors.black.withValues(alpha: 0.08)),
+            ),
+          ),
+          child: Text(
+            _showUrdu ? 'EN' : 'اردو',
+            style: TextStyle(
+              color: _showUrdu ? Colors.green : onSurface,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeToggle({required Color onSurface}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: IconButton(
+        onPressed: () {
+          final settings =
+              Provider.of<SettingsProvider>(context, listen: false);
+          settings.toggleTheme(!_isDark);
+        },
+        icon: Icon(
+          _isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          color: onSurface,
+          size: 20,
+        ),
+        tooltip: _isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+        padding: const EdgeInsets.all(8),
+        constraints: const BoxConstraints(),
+      ),
+    );
+  }
+
   Widget _buildBuzzerToggle() {
     final onMuted = _isDark ? Colors.white54 : Colors.black54;
     return Padding(
@@ -339,12 +417,16 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
           decoration: BoxDecoration(
             color: _buzzer.isActive
                 ? Colors.red.withValues(alpha: 0.25)
-                : (_isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.04)),
+                : (_isDark
+                    ? Colors.white12
+                    : Colors.black12.withValues(alpha: 0.04)),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _buzzer.isActive
                   ? Colors.red
-                  : (_isDark ? Colors.white24 : Colors.black12.withValues(alpha: 0.08)),
+                  : (_isDark
+                      ? Colors.white24
+                      : Colors.black12.withValues(alpha: 0.08)),
             ),
           ),
           child: Row(
@@ -382,7 +464,8 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: _isDark ? 0.3 : 0.18)),
+        border:
+            Border.all(color: Colors.blue.withValues(alpha: _isDark ? 0.3 : 0.18)),
         boxShadow: _isDark
             ? const []
             : [
@@ -445,9 +528,13 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
             ),
           ),
           TextButton(
-            onPressed: () { _buzzer.stop(); setState(() {}); },
+            onPressed: () {
+              _buzzer.stop();
+              setState(() {});
+            },
             child: const Text('STOP',
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -493,7 +580,8 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: svc.color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -509,16 +597,24 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
               ],
             ),
             const Spacer(),
-            Text(svc.name,
-                style: TextStyle(
-                    color: onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13)),
+            Text(
+              _showUrdu ? svc.nameUrdu : svc.name,
+              style: TextStyle(
+                  color: onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+              textDirection:
+                  _showUrdu ? TextDirection.rtl : TextDirection.ltr,
+            ),
             const SizedBox(height: 4),
-            Text(svc.description,
-                style: TextStyle(color: onMuted, fontSize: 10),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
+            Text(
+              _showUrdu ? svc.descriptionUrdu : svc.description,
+              style: TextStyle(color: onMuted, fontSize: 10),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textDirection:
+                  _showUrdu ? TextDirection.rtl : TextDirection.ltr,
+            ),
           ],
         ),
       ),
@@ -541,6 +637,8 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
         builder: (_, scroll) => _ServiceSheet(
           service: svc,
           draft: draft,
+          showUrdu: _showUrdu,
+          isDark: _isDark,
           onCallPressed: () => _callService(svc),
           onStreetLocPressed: _openStreetLocation,
           onBuzzerToggle: () async {
@@ -559,19 +657,18 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
   }
 
   Future<void> _callService(_Service svc) async {
-    // Pause buzzer while calling (user will hear the call)
     if (_buzzer.isActive) _buzzer.stop();
     final uri = Uri(scheme: 'tel', path: svc.number);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   Future<void> _openStreetLocation() async {
-    // Best-effort: use last known position; if missing, fetch quickly.
     Position? pos = _lastPosition;
     if (pos == null) {
       try {
         pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.medium),
         ).timeout(const Duration(seconds: 6));
         _lastPosition = pos;
       } catch (_) {}
@@ -583,15 +680,16 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not fetch GPS location. Please enable Location and try again.'),
+          content: Text(
+              'Could not fetch GPS location. Please enable Location and try again.'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    // Prefer geo: (Android), otherwise OpenStreetMap externally.
-    final geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng(MUHAFIZ%20Location)');
+    final geoUri =
+        Uri.parse('geo:$lat,$lng?q=$lat,$lng(MUHAFIZ%20Location)');
     if (await canLaunchUrl(geoUri)) {
       await launchUrl(geoUri);
       return;
@@ -611,6 +709,8 @@ class _MadgarPortalScreenState extends State<MadgarPortalScreen> {
 class _ServiceSheet extends StatelessWidget {
   final _Service service;
   final String draft;
+  final bool showUrdu;
+  final bool isDark;
   final VoidCallback onCallPressed;
   final VoidCallback onStreetLocPressed;
   final VoidCallback onBuzzerToggle;
@@ -620,12 +720,21 @@ class _ServiceSheet extends StatelessWidget {
   const _ServiceSheet({
     required this.service,
     required this.draft,
+    required this.showUrdu,
+    required this.isDark,
     required this.onCallPressed,
     required this.onStreetLocPressed,
     required this.onBuzzerToggle,
     required this.isBuzzerActive,
     required this.scrollController,
   });
+
+  Color get _textPrimary => isDark ? Colors.white : Colors.black87;
+  Color get _textMuted => isDark ? Colors.white54 : Colors.black54;
+  Color get _textFaint => isDark ? Colors.white38 : Colors.black38;
+  Color get _divider => isDark ? Colors.white24 : Colors.black12;
+  Color get _draftBg =>
+      isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF4F4F4);
 
   @override
   Widget build(BuildContext context) {
@@ -639,7 +748,7 @@ class _ServiceSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white24,
+              color: _divider,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -659,14 +768,19 @@ class _ServiceSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(service.name,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18)),
-                  Text(service.nameUrdu,
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 13)),
+                  Text(
+                    showUrdu ? service.nameUrdu : service.name,
+                    style: TextStyle(
+                        color: _textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18),
+                    textDirection:
+                        showUrdu ? TextDirection.rtl : TextDirection.ltr,
+                  ),
+                  Text(
+                    showUrdu ? service.name : service.nameUrdu,
+                    style: TextStyle(color: _textMuted, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -674,7 +788,7 @@ class _ServiceSheet extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        // Call button (primary action)
+        // Call button
         SizedBox(
           width: double.infinity,
           height: 54,
@@ -686,7 +800,9 @@ class _ServiceSheet extends StatelessWidget {
             ),
             icon: const Icon(Icons.call, color: Colors.white),
             label: Text(
-              'Call ${service.number}',
+              showUrdu
+                  ? '${service.number} پر کال کریں'
+                  : 'Call ${service.number}',
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -697,16 +813,19 @@ class _ServiceSheet extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Street location (secondary action)
+        // Street location
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: service.color.withValues(alpha: 0.55)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            side:
+                BorderSide(color: service.color.withValues(alpha: 0.55)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
           ),
           icon: Icon(Icons.location_on_outlined, color: service.color),
           label: Text(
-            'Street Location',
-            style: TextStyle(color: service.color, fontWeight: FontWeight.bold),
+            showUrdu ? 'موجودہ مقام' : 'Street Location',
+            style: TextStyle(
+                color: service.color, fontWeight: FontWeight.bold),
           ),
           onPressed: onStreetLocPressed,
         ),
@@ -716,20 +835,22 @@ class _ServiceSheet extends StatelessWidget {
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             side: BorderSide(
-                color: isBuzzerActive ? Colors.red : Colors.white24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                color: isBuzzerActive ? Colors.red : _divider),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
           ),
           icon: Icon(
             isBuzzerActive ? Icons.volume_off : Icons.volume_up,
-            color: isBuzzerActive ? Colors.red : Colors.white54,
+            color: isBuzzerActive ? Colors.red : _textMuted,
           ),
           label: Text(
             isBuzzerActive
-                ? 'Stop Buzzer Alert'
-                : 'Start Buzzer Alert (5 cycles)',
-            style: TextStyle(
-                color: isBuzzerActive ? Colors.red : Colors.white54),
+                ? (showUrdu ? 'بزر بند کریں' : 'Stop Buzzer Alert')
+                : (showUrdu
+                    ? 'بزر الرٹ شروع کریں (5 چکر)'
+                    : 'Start Buzzer Alert (5 cycles)'),
+            style:
+                TextStyle(color: isBuzzerActive ? Colors.red : _textMuted),
           ),
           onPressed: onBuzzerToggle,
         ),
@@ -738,26 +859,30 @@ class _ServiceSheet extends StatelessWidget {
         // Pre-drafted message
         Row(
           children: [
-            const Icon(Icons.description_outlined,
-                color: Colors.white54, size: 16),
+            Icon(Icons.description_outlined, color: _textMuted, size: 16),
             const SizedBox(width: 8),
-            const Text('Pre-Drafted Message',
-                style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13)),
+            Text(
+              showUrdu ? 'پہلے سے تیار پیغام' : 'Pre-Drafted Message',
+              style: TextStyle(
+                  color: _textMuted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+            ),
             const Spacer(),
             TextButton.icon(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: draft));
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Message copied to clipboard'),
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content:
+                      Text(showUrdu ? 'پیغام کاپی ہو گیا' : 'Message copied to clipboard'),
                   backgroundColor: Colors.green,
                 ));
               },
-              icon: const Icon(Icons.copy, size: 14, color: Colors.white38),
-              label: const Text('Copy',
-                  style: TextStyle(color: Colors.white38, fontSize: 12)),
+              icon: Icon(Icons.copy, size: 14, color: _textFaint),
+              label: Text(
+                showUrdu ? 'کاپی' : 'Copy',
+                style: TextStyle(color: _textFaint, fontSize: 12),
+              ),
             ),
           ],
         ),
@@ -765,15 +890,15 @@ class _ServiceSheet extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF0D0D0D),
+            color: _draftBg,
             borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: service.color.withValues(alpha: 0.3)),
+            border: Border.all(
+                color: service.color.withValues(alpha: 0.3)),
           ),
           child: Text(
             draft,
-            style: const TextStyle(
-                color: Colors.white70, fontSize: 12, height: 1.6),
+            style: TextStyle(
+                color: _textMuted, fontSize: 12, height: 1.6),
           ),
         ),
         const SizedBox(height: 16),
@@ -781,13 +906,15 @@ class _ServiceSheet extends StatelessWidget {
         // Send via SMS
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.white24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            side: BorderSide(color: _divider),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
           ),
-          icon: const Icon(Icons.sms_outlined, color: Colors.white54),
-          label: const Text('Send via SMS',
-              style: TextStyle(color: Colors.white54)),
+          icon: Icon(Icons.sms_outlined, color: _textMuted),
+          label: Text(
+            showUrdu ? 'ایس ایم ایس کریں' : 'Send via SMS',
+            style: TextStyle(color: _textMuted),
+          ),
           onPressed: () async {
             final uri = Uri(
               scheme: 'sms',
@@ -800,20 +927,24 @@ class _ServiceSheet extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // Acknowledged button — stops buzzer, closes sheet
+        // Acknowledged button
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green.shade800,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: () {
             if (isBuzzerActive) onBuzzerToggle();
             Navigator.pop(context);
           },
-          child: const Text('Acknowledged — Help is Coming',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: Text(
+            showUrdu
+                ? 'تصدیق ہو گئی — مدد آ رہی ہے'
+                : 'Acknowledged — Help is Coming',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );

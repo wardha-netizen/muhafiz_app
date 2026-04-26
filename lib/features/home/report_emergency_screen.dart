@@ -163,8 +163,8 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     _showSnackBar('Video attached', Colors.green);
   }
 
-  // --- EMERGENCY PROTOCOL & AUTO-SMS ---
-  Future<List<String>> _executeProtocol(String type) async {
+  // --- EMERGENCY PROTOCOL ---
+  Future<void> _executeProtocol(String type) async {
     final bool isStealth = ['Robbery', 'Assault', 'Other'].contains(type);
 
     if (isStealth) {
@@ -178,7 +178,6 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     }
 
     await _saveEmergencyReport(type);
-    return _sendInstantAlerts();
   }
 
   Future<String?> _uploadMedia(String filePath, String folder) async {
@@ -235,37 +234,44 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     });
   }
 
-  Future<List<String>> _sendInstantAlerts() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? c1 = prefs.getString('contact1');
-    final String? c2 = prefs.getString('contact2');
-    final String userName = prefs.getString('name1') ?? 'MUHAFIZ User';
+  Future<List<String>> _showContactAlertSheet() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userName = prefs.getString('name1') ?? 'MUHAFIZ User';
+    final c1Phone = prefs.getString('contact1') ?? '';
+    final c1Name = prefs.getString('contactName1') ?? 'Contact 1';
+    final c2Phone = prefs.getString('contact2') ?? '';
+    final c2Name = prefs.getString('contactName2') ?? 'Contact 2';
 
-    final String msg = '!! EMERGENCY ALERT !!\n'
+    final msg = '🚨 EMERGENCY ALERT 🚨\n'
         'User: $userName\n'
         'Type: $selectedType\n'
         'Location: $_currentAddress\n'
-        'Info: ${_descController.text}';
+        '${_descController.text.trim().isNotEmpty ? 'Info: ${_descController.text.trim()}' : ''}';
 
-    Future<void> launchSMS(String phone) async {
-      final Uri uri = Uri(
-        scheme: 'sms',
-        path: phone,
-        queryParameters: {'body': msg},
-      );
-      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    final contacts = <({String name, String phone})>[];
+    if (c1Phone.isNotEmpty) contacts.add((name: c1Name, phone: c1Phone));
+    if (c2Phone.isNotEmpty) contacts.add((name: c2Name, phone: c2Phone));
+
+    if (contacts.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No emergency contacts found. Please add them in Profile.'),
+          backgroundColor: Colors.orange,
+        ));
+      }
+      return [];
     }
 
-    final recipients = <String>[];
-    if (c1 != null && c1.isNotEmpty) {
-      recipients.add(c1);
-      await launchSMS(c1);
-    }
-    if (c2 != null && c2.isNotEmpty) {
-      recipients.add(c2);
-      await launchSMS(c2);
-    }
-    return recipients;
+    if (!mounted) return [];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ContactAlertSheet(contacts: contacts, message: msg),
+    );
+
+    return contacts.map((c) => c.phone).toList();
   }
 
   @override
@@ -551,8 +557,12 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
       }
     }
 
-    final recipients = await _executeProtocol(selectedType);
+    await _executeProtocol(selectedType);
     if (!mounted) return;
+
+    final recipients = await _showContactAlertSheet();
+    if (!mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -588,6 +598,221 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     _showSnackBar(
       'Triage completed. You can attach media and submit your report.',
       Colors.green,
+    );
+  }
+}
+
+// ── Contact alert bottom sheet ────────────────────────────────────────────────
+
+class _ContactAlertSheet extends StatefulWidget {
+  final List<({String name, String phone})> contacts;
+  final String message;
+
+  const _ContactAlertSheet({required this.contacts, required this.message});
+
+  @override
+  State<_ContactAlertSheet> createState() => _ContactAlertSheetState();
+}
+
+class _ContactAlertSheetState extends State<_ContactAlertSheet> {
+  // tracks which (contactIndex, channel) pairs have been tapped
+  final Set<String> _sent = {};
+
+  static String _toWaNumber(String phone) {
+    final c = phone.replaceAll(RegExp(r'[\s\-\(\)+]'), '');
+    if (c.startsWith('92')) return c;
+    if (c.startsWith('0')) return '92${c.substring(1)}';
+    return '92$c';
+  }
+
+  Future<void> _launchSms(String phone) async {
+    final uri = Uri(scheme: 'sms', path: phone,
+        queryParameters: {'body': widget.message});
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    final waNum = _toWaNumber(phone);
+    final encoded = Uri.encodeComponent(widget.message);
+    final uri = Uri.parse('https://wa.me/$waNum?text=$encoded');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final onSurface = isDark ? Colors.white : Colors.black87;
+    final onMuted = isDark ? Colors.white54 : Colors.black54;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // drag handle
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.notification_important, color: Colors.red, size: 20),
+              const SizedBox(width: 8),
+              Text('Alert Emergency Contacts',
+                  style: TextStyle(color: onSurface,
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Choose how to notify each contact',
+              style: TextStyle(color: onMuted, fontSize: 12)),
+          const SizedBox(height: 16),
+          ...List.generate(widget.contacts.length, (i) {
+            final c = widget.contacts[i];
+            final smsSent = _sent.contains('${i}_sms');
+            final waSent  = _sent.contains('${i}_wa');
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF6F7FB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: isDark ? Colors.white12 : Colors.black12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.red.withValues(alpha: 0.15),
+                        child: Text('${i + 1}',
+                            style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(c.name,
+                                style: TextStyle(
+                                    color: onSurface,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
+                            Text(c.phone,
+                                style: TextStyle(
+                                    color: onMuted, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color: smsSent
+                                    ? Colors.green
+                                    : Colors.blue.withValues(alpha: 0.6)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Icon(
+                            smsSent ? Icons.check : Icons.sms_outlined,
+                            color: smsSent ? Colors.green : Colors.blue,
+                            size: 16,
+                          ),
+                          label: Text(
+                            smsSent ? 'SMS Sent' : 'Send SMS',
+                            style: TextStyle(
+                                color: smsSent ? Colors.green : Colors.blue,
+                                fontSize: 13),
+                          ),
+                          onPressed: smsSent
+                              ? null
+                              : () async {
+                                  await _launchSms(c.phone);
+                                  setState(() => _sent.add('${i}_sms'));
+                                },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color: waSent
+                                    ? Colors.green
+                                    : Colors.green.withValues(alpha: 0.7)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Icon(
+                            waSent ? Icons.check : Icons.chat_outlined,
+                            color: waSent ? Colors.green : Colors.green.shade600,
+                            size: 16,
+                          ),
+                          label: Text(
+                            waSent ? 'Sent' : 'WhatsApp',
+                            style: TextStyle(
+                                color: waSent
+                                    ? Colors.green
+                                    : Colors.green.shade600,
+                                fontSize: 13),
+                          ),
+                          onPressed: waSent
+                              ? null
+                              : () async {
+                                  await _launchWhatsApp(c.phone);
+                                  setState(() => _sent.add('${i}_wa'));
+                                },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done — Help is Coming',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

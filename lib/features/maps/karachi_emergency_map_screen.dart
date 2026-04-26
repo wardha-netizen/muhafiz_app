@@ -5,7 +5,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/settings_provider.dart';
 
 const LatLng _karachiCentre = LatLng(24.8607, 67.0011);
 
@@ -27,192 +29,37 @@ class _Poi {
   });
 }
 
-// ── Hardcoded Karachi emergency services — shown even when offline/Overpass down ─
-
 List<_Poi> _staticKarachiPois() => [
-      // ── Hospitals ──────────────────────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8592, 67.0694),
-          name: 'Aga Khan University Hospital',
-          phone: '021-111-911-911',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8704, 67.0327),
-          name: 'Jinnah Postgraduate Medical Centre',
-          phone: '021-99201300',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8604, 67.0301),
-          name: 'Civil Hospital Karachi',
-          phone: '021-99215740',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8815, 67.0604),
-          name: 'Liaquat National Hospital',
-          phone: '021-34412442',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8895, 67.1027),
-          name: 'Indus Hospital Korangi',
-          phone: '021-35110000',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8725, 67.0400),
-          name: 'DOW University Hospital',
-          phone: '021-99261300',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.8503, 67.0139),
-          name: 'South City Hospital',
-          phone: '021-35860001',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.hospital,
-          pos: LatLng(24.9367, 67.0747),
-          name: 'KMDC Teaching Hospital',
-          phone: '021-36616006',
-          isStatic: true),
-
-      // ── Police Stations ────────────────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.8604, 67.0194),
-          name: 'Saddar Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.8241, 67.0330),
-          name: 'Clifton Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.8711, 67.0195),
-          name: 'Garden Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.7906, 67.0595),
-          name: 'DHA Phase-II Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.9087, 67.0187),
-          name: 'SITE Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.8375, 67.1308),
-          name: 'Korangi Police Station',
-          phone: '15',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.police,
-          pos: LatLng(24.9614, 67.0628),
-          name: 'Surjani Police Station',
-          phone: '15',
-          isStatic: true),
-
-      // ── Fire Stations ──────────────────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.fire,
-          pos: LatLng(24.8736, 67.0339),
-          name: 'Karachi Fire Brigade HQ (Saddar)',
-          phone: '16',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.fire,
-          pos: LatLng(24.8169, 67.0228),
-          name: 'Clifton Fire Station',
-          phone: '16',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.fire,
-          pos: LatLng(24.9614, 67.0628),
-          name: 'North Karachi Fire Station',
-          phone: '16',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.fire,
-          pos: LatLng(24.8900, 67.0400),
-          name: 'Lyari Fire Station',
-          phone: '021-32262030',
-          isStatic: true),
-
-      // ── Ambulance / Welfare ────────────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.ambulance,
-          pos: LatLng(24.8601, 67.0087),
-          name: 'Edhi Foundation HQ (Mithadar)',
-          phone: '115',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.ambulance,
-          pos: LatLng(24.8950, 67.0750),
-          name: 'Edhi Centre North Nazimabad',
-          phone: '115',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.ambulance,
-          pos: LatLng(24.9231, 67.0947),
-          name: 'Chhipa Welfare Gulshan',
-          phone: '1020',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.ambulance,
-          pos: LatLng(24.8592, 67.0694),
-          name: 'Aman Foundation Ambulance',
-          phone: '1102',
-          isStatic: true),
-
-      // ── Evacuation Grounds / Parks ─────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.park,
-          pos: LatLng(24.8723, 67.0259),
-          name: 'Nishtar Park (Evacuation Ground)',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.park,
-          pos: LatLng(24.8102, 67.0228),
-          name: 'Bagh Ibn Qasim (Clifton)',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.park,
-          pos: LatLng(24.8459, 67.0728),
-          name: 'Hill Park (Evacuation Point)',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.park,
-          pos: LatLng(24.8019, 67.0339),
-          name: 'Seaview Ground (Emergency Muster)',
-          isStatic: true),
-      const _Poi(
-          type: _PoiType.park,
-          pos: LatLng(24.9021, 67.0659),
-          name: 'Gulshan-e-Iqbal Park',
-          isStatic: true),
-
-      // ── Water Points ───────────────────────────────────────────────────────
-      const _Poi(
-          type: _PoiType.water,
-          pos: LatLng(24.8756, 67.0287),
-          name: 'KWSB HQ (Water Emergency: 1630)',
-          phone: '1630',
-          isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8592, 67.0694), name: 'Aga Khan University Hospital', phone: '021-111-911-911', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8704, 67.0327), name: 'Jinnah Postgraduate Medical Centre', phone: '021-99201300', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8604, 67.0301), name: 'Civil Hospital Karachi', phone: '021-99215740', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8815, 67.0604), name: 'Liaquat National Hospital', phone: '021-34412442', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8895, 67.1027), name: 'Indus Hospital Korangi', phone: '021-35110000', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8725, 67.0400), name: 'DOW University Hospital', phone: '021-99261300', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.8503, 67.0139), name: 'South City Hospital', phone: '021-35860001', isStatic: true),
+      const _Poi(type: _PoiType.hospital, pos: LatLng(24.9367, 67.0747), name: 'KMDC Teaching Hospital', phone: '021-36616006', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.8604, 67.0194), name: 'Saddar Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.8241, 67.0330), name: 'Clifton Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.8711, 67.0195), name: 'Garden Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.7906, 67.0595), name: 'DHA Phase-II Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.9087, 67.0187), name: 'SITE Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.8375, 67.1308), name: 'Korangi Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.police, pos: LatLng(24.9614, 67.0628), name: 'Surjani Police Station', phone: '15', isStatic: true),
+      const _Poi(type: _PoiType.fire, pos: LatLng(24.8736, 67.0339), name: 'Karachi Fire Brigade HQ (Saddar)', phone: '16', isStatic: true),
+      const _Poi(type: _PoiType.fire, pos: LatLng(24.8169, 67.0228), name: 'Clifton Fire Station', phone: '16', isStatic: true),
+      const _Poi(type: _PoiType.fire, pos: LatLng(24.9614, 67.0628), name: 'North Karachi Fire Station', phone: '16', isStatic: true),
+      const _Poi(type: _PoiType.fire, pos: LatLng(24.8900, 67.0400), name: 'Lyari Fire Station', phone: '021-32262030', isStatic: true),
+      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8601, 67.0087), name: 'Edhi Foundation HQ (Mithadar)', phone: '115', isStatic: true),
+      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8950, 67.0750), name: 'Edhi Centre North Nazimabad', phone: '115', isStatic: true),
+      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.9231, 67.0947), name: 'Chhipa Welfare Gulshan', phone: '1020', isStatic: true),
+      const _Poi(type: _PoiType.ambulance, pos: LatLng(24.8592, 67.0694), name: 'Aman Foundation Ambulance', phone: '1102', isStatic: true),
+      const _Poi(type: _PoiType.park, pos: LatLng(24.8723, 67.0259), name: 'Nishtar Park (Evacuation Ground)', isStatic: true),
+      const _Poi(type: _PoiType.park, pos: LatLng(24.8102, 67.0228), name: 'Bagh Ibn Qasim (Clifton)', isStatic: true),
+      const _Poi(type: _PoiType.park, pos: LatLng(24.8459, 67.0728), name: 'Hill Park (Evacuation Point)', isStatic: true),
+      const _Poi(type: _PoiType.park, pos: LatLng(24.8019, 67.0339), name: 'Seaview Ground (Emergency Muster)', isStatic: true),
+      const _Poi(type: _PoiType.park, pos: LatLng(24.9021, 67.0659), name: 'Gulshan-e-Iqbal Park', isStatic: true),
+      const _Poi(type: _PoiType.water, pos: LatLng(24.8756, 67.0287), name: 'KWSB HQ (Water Emergency: 1630)', phone: '1630', isStatic: true),
     ];
-
-// ── Screen ──────────────────────────────────────────────────────────────────
 
 class KarachiEmergencyMapScreen extends StatefulWidget {
   const KarachiEmergencyMapScreen({super.key});
@@ -222,27 +69,29 @@ class KarachiEmergencyMapScreen extends StatefulWidget {
       _KarachiEmergencyMapScreenState();
 }
 
-class _KarachiEmergencyMapScreenState extends State<KarachiEmergencyMapScreen> {
+class _KarachiEmergencyMapScreenState
+    extends State<KarachiEmergencyMapScreen> {
   final MapController _mapController = MapController();
 
   LatLng _userLocation = _karachiCentre;
   List<_Poi> _pois = [];
   bool _usingStaticData = false;
+  bool _isUrdu = false;
   Timer? _locationTimer;
 
   final Set<_PoiType> _visible = {..._PoiType.values};
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
+
   @override
   void initState() {
     super.initState();
-    // Load static POIs immediately so map is never empty
     _pois = _staticKarachiPois();
     _usingStaticData = true;
-
     _getUserLocation();
     _tryLoadOverpassPois();
-
-    // Live location update every 30 seconds (5s was too aggressive for battery)
     _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _getUserLocation();
     });
@@ -274,12 +123,9 @@ class _KarachiEmergencyMapScreenState extends State<KarachiEmergencyMapScreen> {
       if (mounted) {
         setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
       }
-    } catch (_) {
-      // Keep current location
-    }
+    } catch (_) {}
   }
 
-  // ── Overpass query — tries 2 mirrors, falls back to static on failure ──────
   Future<void> _tryLoadOverpassPois() async {
     const mirrors = [
       'https://overpass-api.de/api/interpreter',
@@ -288,7 +134,7 @@ class _KarachiEmergencyMapScreenState extends State<KarachiEmergencyMapScreen> {
 
     final lat = _karachiCentre.latitude;
     final lng = _karachiCentre.longitude;
-    const r = 15000; // 15 km radius
+    const r = 15000;
 
     final query = '''
 [out:json][timeout:20];
@@ -355,9 +201,7 @@ out center;
           } else if (manMade == 'water_tower' || amenity == 'water_point') {
             type = _PoiType.water;
           }
-          if (type == null) {
-            continue;
-          }
+          if (type == null) { continue; }
 
           parsed.add(_Poi(
             type: type,
@@ -368,19 +212,16 @@ out center;
         }
 
         if (parsed.isNotEmpty && mounted) {
-          // Merge: keep static POIs, add live data on top
-          final merged = [..._staticKarachiPois(), ...parsed];
           setState(() {
-            _pois = merged;
+            _pois = [..._staticKarachiPois(), ...parsed];
             _usingStaticData = false;
           });
         }
-        return; // success — exit mirror loop
+        return;
       } catch (_) {
-        continue; // try next mirror
+        continue;
       }
     }
-    // Both mirrors failed — static data already showing, just flag it
     if (mounted) setState(() => _usingStaticData = true);
   }
 
@@ -395,91 +236,113 @@ out center;
     return 'Water Point';
   }
 
-  // ── Styling helpers ────────────────────────────────────────────────────────
   Color _poiColor(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital:
-        return Colors.red.shade700;
-      case _PoiType.police:
-        return Colors.blue.shade700;
-      case _PoiType.fire:
-        return Colors.orange.shade700;
-      case _PoiType.ambulance:
-        return Colors.green.shade600;
-      case _PoiType.pharmacy:
-        return Colors.teal.shade600;
-      case _PoiType.park:
-        return Colors.lightGreen.shade700;
-      case _PoiType.water:
-        return Colors.cyan.shade700;
+      case _PoiType.hospital: return Colors.red.shade700;
+      case _PoiType.police: return Colors.blue.shade700;
+      case _PoiType.fire: return Colors.orange.shade700;
+      case _PoiType.ambulance: return Colors.green.shade600;
+      case _PoiType.pharmacy: return Colors.teal.shade600;
+      case _PoiType.park: return Colors.lightGreen.shade700;
+      case _PoiType.water: return Colors.cyan.shade700;
     }
   }
 
   IconData _poiIcon(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital:
-        return Icons.local_hospital;
-      case _PoiType.police:
-        return Icons.local_police;
-      case _PoiType.fire:
-        return Icons.fire_truck;
-      case _PoiType.ambulance:
-        return Icons.emergency;
-      case _PoiType.pharmacy:
-        return Icons.medical_services;
-      case _PoiType.park:
-        return Icons.park;
-      case _PoiType.water:
-        return Icons.water_drop;
+      case _PoiType.hospital: return Icons.local_hospital;
+      case _PoiType.police: return Icons.local_police;
+      case _PoiType.fire: return Icons.fire_truck;
+      case _PoiType.ambulance: return Icons.emergency;
+      case _PoiType.pharmacy: return Icons.medical_services;
+      case _PoiType.park: return Icons.park;
+      case _PoiType.water: return Icons.water_drop;
     }
   }
 
   String _poiLabel(_PoiType t) {
     switch (t) {
-      case _PoiType.hospital:
-        return 'Hospital';
-      case _PoiType.police:
-        return 'Police';
-      case _PoiType.fire:
-        return 'Fire';
-      case _PoiType.ambulance:
-        return 'Ambulance';
-      case _PoiType.pharmacy:
-        return 'Pharmacy';
-      case _PoiType.park:
-        return 'Evacuation';
-      case _PoiType.water:
-        return 'Water';
+      case _PoiType.hospital: return _t('Hospital', 'اسپتال');
+      case _PoiType.police: return _t('Police', 'پولیس');
+      case _PoiType.fire: return _t('Fire', 'فائر');
+      case _PoiType.ambulance: return _t('Ambulance', 'ایمبولینس');
+      case _PoiType.pharmacy: return _t('Pharmacy', 'دواخانہ');
+      case _PoiType.park: return _t('Evacuation', 'انخلاء');
+      case _PoiType.water: return _t('Water', 'پانی');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final barBg =
+        _isDark ? Colors.grey.shade900 : Colors.grey.shade200;
+    final onSurface = _isDark ? Colors.white : Colors.black87;
+    final onMuted = _isDark ? Colors.white70 : Colors.black54;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Karachi Emergency Map'),
+        title: Text(_t('Karachi Emergency Map', 'کراچی ہنگامی نقشہ')),
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
         actions: [
+          // Language toggle
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: GestureDetector(
+              onTap: () => setState(() => _isUrdu = !_isUrdu),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: _isUrdu
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  _isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Theme toggle
+          IconButton(
+            icon: Icon(
+              _isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: Colors.white,
+            ),
+            onPressed: () =>
+                Provider.of<SettingsProvider>(context, listen: false)
+                    .toggleTheme(!_isDark),
+          ),
+          // Refresh
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh POI data',
+            tooltip: _t('Refresh POI data', 'ڈیٹا تازہ کریں'),
             onPressed: _tryLoadOverpassPois,
           ),
         ],
       ),
       body: Column(
         children: [
-          _buildFilterBar(),
-          if (_usingStaticData) _buildStaticDataBanner(),
+          _buildFilterBar(barBg: barBg, onSurface: onSurface),
+          if (_usingStaticData) _buildStaticDataBanner(onMuted: onMuted),
           Expanded(child: _buildMap()),
-          _buildLegend(),
+          _buildLegend(barBg: barBg, onMuted: onMuted),
         ],
       ),
     );
   }
 
-  Widget _buildStaticDataBanner() {
+  Widget _buildStaticDataBanner({required Color onMuted}) {
     return Container(
       color: Colors.amber.shade800,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -487,46 +350,55 @@ out center;
         children: [
           const Icon(Icons.offline_bolt, color: Colors.white, size: 14),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Showing verified Karachi emergency services (offline data). Tap refresh to load live map.',
-              style: TextStyle(color: Colors.white, fontSize: 11),
+              _t(
+                'Showing verified Karachi emergency services (offline data). Tap refresh to load live map.',
+                'تصدیق شدہ کراچی ہنگامی خدمات دکھائی جا رہی ہیں (آف لائن)۔ لائیو نقشے کے لیے ریفریش کریں۔',
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
           TextButton(
             onPressed: _tryLoadOverpassPois,
-            child: const Text('REFRESH',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11)),
+            child: Text(
+              _t('REFRESH', 'تازہ کریں'),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(
+      {required Color barBg, required Color onSurface}) {
     return Container(
       height: 46,
-      color: Colors.grey.shade900,
+      color: barBg,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         children: _PoiType.values.map((t) {
           final on = _visible.contains(t);
           final count = _pois.where((p) => p.type == t).length;
+          final labelColor = on
+              ? Colors.white
+              : (_isDark ? Colors.white54 : Colors.black54);
           return Padding(
             padding: const EdgeInsets.only(right: 6),
             child: FilterChip(
               label: Text(
                 '${_poiLabel(t)} ($count)',
-                style: TextStyle(
-                    fontSize: 11, color: on ? Colors.white : Colors.white54),
+                style: TextStyle(fontSize: 11, color: labelColor),
               ),
               selected: on,
               selectedColor: _poiColor(t),
-              backgroundColor: Colors.grey.shade800,
+              backgroundColor:
+                  _isDark ? Colors.grey.shade800 : Colors.grey.shade300,
               onSelected: (v) => setState(() {
                 if (v) {
                   _visible.add(t);
@@ -546,7 +418,8 @@ out center;
   }
 
   Widget _buildMap() {
-    final visiblePois = _pois.where((p) => _visible.contains(p.type)).toList();
+    final visiblePois =
+        _pois.where((p) => _visible.contains(p.type)).toList();
 
     return FlutterMap(
       mapController: _mapController,
@@ -565,7 +438,6 @@ out center;
         ),
         MarkerLayer(
           markers: [
-            // User location
             Marker(
               point: _userLocation,
               width: 40,
@@ -574,7 +446,8 @@ out center;
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.red.shade700, width: 3),
+                  border:
+                      Border.all(color: Colors.red.shade700, width: 3),
                   boxShadow: const [
                     BoxShadow(color: Colors.black38, blurRadius: 6),
                   ],
@@ -583,7 +456,6 @@ out center;
                     size: 20, color: Colors.red.shade700),
               ),
             ),
-            // POI markers
             ...visiblePois.map((p) => Marker(
                   point: p.pos,
                   width: 34,
@@ -604,8 +476,8 @@ out center;
                               offset: Offset(0, 2)),
                         ],
                       ),
-                      child:
-                          Icon(_poiIcon(p.type), size: 18, color: Colors.white),
+                      child: Icon(_poiIcon(p.type),
+                          size: 18, color: Colors.white),
                     ),
                   ),
                 )),
@@ -615,9 +487,10 @@ out center;
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(
+      {required Color barBg, required Color onMuted}) {
     return Container(
-      color: Colors.grey.shade900,
+      color: barBg,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -631,8 +504,8 @@ out center;
                         Icon(_poiIcon(t), size: 14, color: _poiColor(t)),
                         const SizedBox(width: 3),
                         Text(_poiLabel(t),
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 10)),
+                            style: TextStyle(
+                                color: onMuted, fontSize: 10)),
                       ],
                     ),
                   ))
@@ -643,9 +516,14 @@ out center;
   }
 
   void _showPoiSheet(_Poi poi) {
+    final sheetBg =
+        _isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textPrimary = _isDark ? Colors.white : Colors.black87;
+    final textMuted = _isDark ? Colors.white54 : Colors.black54;
+
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
@@ -665,13 +543,15 @@ out center;
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(poi.name,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold)),
                       Text(
-                        '${_poiLabel(poi.type)}${poi.isStatic ? ' · Verified' : ' · Live'}',
+                        poi.name,
+                        style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${_poiLabel(poi.type)}${poi.isStatic ? ' · ${_t('Verified', 'تصدیق شدہ')}' : ' · ${_t('Live', 'لائیو')}'}',
                         style: TextStyle(
                             color: _poiColor(poi.type),
                             fontSize: 12,
@@ -687,10 +567,12 @@ out center;
               GestureDetector(
                 onTap: () => launchUrl(Uri(scheme: 'tel', path: poi.phone)),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade900,
+                    color: _isDark
+                        ? Colors.green.shade900
+                        : Colors.green.shade50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.green.shade700),
                   ),
@@ -704,11 +586,13 @@ out center;
                               fontWeight: FontWeight.bold,
                               fontSize: 16)),
                       const Spacer(),
-                      const Text('TAP TO CALL',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 11,
-                              letterSpacing: 1)),
+                      Text(
+                        _t('TAP TO CALL', 'کال کریں'),
+                        style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 11,
+                            letterSpacing: 1),
+                      ),
                     ],
                   ),
                 ),
@@ -723,13 +607,25 @@ out center;
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12))),
                 icon: const Icon(Icons.directions, color: Colors.white),
-                label: const Text('Get Directions (OpenStreetMap)',
-                    style: TextStyle(color: Colors.white)),
+                label: Text(
+                  _t('Get Directions (OpenStreetMap)',
+                      'راستہ دکھائیں (اوپن اسٹریٹ میپ)'),
+                  style: const TextStyle(color: Colors.white),
+                ),
                 onPressed: () => launchUrl(Uri.parse(
                   'https://www.openstreetmap.org/directions?to=${poi.pos.latitude},${poi.pos.longitude}',
                 )),
               ),
             ),
+            if (!_isDark) ...[
+              const SizedBox(height: 4),
+              Text(
+                _t('Verified static data · tap marker to navigate',
+                    'تصدیق شدہ ڈیٹا · نیویگیشن کے لیے ٹیپ کریں'),
+                style: TextStyle(color: textMuted, fontSize: 10),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       ),

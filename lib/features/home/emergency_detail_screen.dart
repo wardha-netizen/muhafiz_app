@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/settings_provider.dart';
 
 class EmergencyDetailScreen extends StatefulWidget {
   final String emergencyId;
@@ -20,6 +22,21 @@ class EmergencyDetailScreen extends StatefulWidget {
 class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
+  bool _isUrdu = false;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
+
+  bool get _isDark =>
+      Provider.of<SettingsProvider>(context, listen: false).themeMode ==
+      ThemeMode.dark;
+  Color get _bg =>
+      _isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF5F5F5);
+  Color get _surface => _isDark ? const Color(0xFF1A1A1A) : Colors.white;
+  Color get _appBarBg =>
+      _isDark ? const Color(0xFF1A1A1A) : Colors.white;
+  Color get _onSurface => _isDark ? Colors.white : Colors.black87;
+  Color get _onMuted => _isDark ? Colors.white54 : Colors.black54;
+  Color get _onFaint => _isDark ? Colors.white38 : Colors.black38;
 
   @override
   void dispose() {
@@ -49,6 +66,9 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when theme changes
+    Provider.of<SettingsProvider>(context);
+
     final data = widget.data;
     final type = (data['type'] ?? 'Emergency').toString();
     final reporter = (data['userName'] ?? 'Unknown').toString();
@@ -63,21 +83,45 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
     final bloodGroup = (data['bloodGroup'] ?? '').toString();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: _appBarBg,
         elevation: 0,
+        iconTheme: IconThemeData(color: _onSurface),
         title: Text(
           type,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+          style: TextStyle(
+              color: _onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 17),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border:
+                    Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+              ),
+              child: Text(_isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+                _isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                color: _isDark ? Colors.amber : Colors.blueGrey),
+            onPressed: () =>
+                Provider.of<SettingsProvider>(context, listen: false)
+                    .toggleTheme(!_isDark),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 14, top: 10, bottom: 10),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: status.toLowerCase() == 'critical'
                   ? Colors.red.shade800
@@ -103,21 +147,23 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
             const SizedBox(height: 20),
             _buildInfoCard(
               icon: Icons.person_outline,
-              label: 'Reported By',
+              label: _t('Reported By', 'رپورٹ کرنے والا'),
               value: reporter,
             ),
             const SizedBox(height: 10),
             _buildInfoCard(
               icon: Icons.location_on_outlined,
-              label: 'Location',
-              value: location.isEmpty ? 'Location not available' : location,
+              label: _t('Location', 'مقام'),
+              value: location.isEmpty
+                  ? _t('Location not available', 'مقام دستیاب نہیں')
+                  : location,
               iconColor: Colors.blueAccent,
             ),
             if (bloodGroup.isNotEmpty && bloodGroup != 'Unknown') ...[
               const SizedBox(height: 10),
               _buildInfoCard(
                 icon: Icons.bloodtype_outlined,
-                label: 'Blood Group',
+                label: _t('Blood Group', 'بلڈ گروپ'),
                 value: bloodGroup,
                 iconColor: Colors.redAccent,
               ),
@@ -126,7 +172,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
               const SizedBox(height: 10),
               _buildInfoCard(
                 icon: Icons.phone_outlined,
-                label: 'Emergency Contact',
+                label: _t('Emergency Contact', 'ہنگامی رابطہ'),
                 value: contact,
                 iconColor: Colors.greenAccent,
               ),
@@ -135,17 +181,17 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
               const SizedBox(height: 10),
               _buildInfoCard(
                 icon: Icons.notes,
-                label: 'Notes / Details',
+                label: _t('Notes / Details', 'نوٹس / تفصیل'),
                 value: details,
                 iconColor: Colors.amberAccent,
               ),
             ],
             if (photoUrl != null || videoUrl != null || voiceUrl != null) ...[
               const SizedBox(height: 24),
-              const Text(
-                'SUBMITTED EVIDENCE',
+              Text(
+                _t('SUBMITTED EVIDENCE', 'جمع کردہ ثبوت'),
                 style: TextStyle(
-                    color: Colors.white38,
+                    color: _onFaint,
                     fontSize: 11,
                     letterSpacing: 1.8,
                     fontWeight: FontWeight.w600),
@@ -163,14 +209,15 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                       ? child
                       : Container(
                           height: 180,
-                          color: const Color(0xFF1E1E1E),
+                          color: _surface,
                           child: const Center(
                             child: CircularProgressIndicator(
                                 color: Colors.redAccent),
                           ),
                         ),
                   errorBuilder: (_, __, ___) => _buildMediaUnavailableCard(
-                      Icons.image_not_supported, 'Photo unavailable'),
+                      Icons.image_not_supported,
+                      _t('Photo unavailable', 'تصویر دستیاب نہیں')),
                 ),
               ),
               const SizedBox(height: 10),
@@ -181,33 +228,34 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: _surface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: Colors.purpleAccent.withValues(alpha: 0.35)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.play_circle_outline,
+                      const Icon(Icons.play_circle_outline,
                           color: Colors.purpleAccent, size: 32),
-                      SizedBox(width: 14),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Video Evidence',
+                            Text(_t('Video Evidence', 'ویڈیو ثبوت'),
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: _onSurface,
                                     fontWeight: FontWeight.w600)),
-                            SizedBox(height: 2),
-                            Text('Tap to open video',
+                            const SizedBox(height: 2),
+                            Text(
+                                _t('Tap to open video',
+                                    'ویڈیو کھولنے کے لیے تھپتھپائیں'),
                                 style: TextStyle(
-                                    color: Colors.white38, fontSize: 12)),
+                                    color: _onFaint, fontSize: 12)),
                           ],
                         ),
                       ),
-                      Icon(Icons.open_in_new,
-                          color: Colors.white38, size: 18),
+                      Icon(Icons.open_in_new, color: _onFaint, size: 18),
                     ],
                   ),
                 ),
@@ -220,7 +268,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: _surface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: Colors.tealAccent.withValues(alpha: 0.35)),
@@ -239,15 +287,18 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Voice Recording',
+                            Text(_t('Voice Recording', 'آواز کی ریکارڈنگ'),
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: _onSurface,
                                     fontWeight: FontWeight.w600)),
                             const SizedBox(height: 2),
                             Text(
-                              _isPlaying ? 'Playing...' : 'Tap to play',
-                              style: const TextStyle(
-                                  color: Colors.white38, fontSize: 12),
+                              _isPlaying
+                                  ? _t('Playing...', 'چل رہا ہے...')
+                                  : _t('Tap to play',
+                                      'سننے کے لیے تھپتھپائیں'),
+                              style: TextStyle(
+                                  color: _onFaint, fontSize: 12),
                             ),
                           ],
                         ),
@@ -256,7 +307,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                         _isPlaying
                             ? Icons.stop_circle_outlined
                             : Icons.headphones_outlined,
-                        color: Colors.white38,
+                        color: _onFaint,
                         size: 20,
                       ),
                     ],
@@ -279,8 +330,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFB71C1C).withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -297,8 +347,8 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
               children: [
                 Text(
                   type,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: _onSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
@@ -306,8 +356,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _formatTimestamp(ts),
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: _onMuted, fontSize: 12),
                   ),
                 ],
               ],
@@ -328,7 +377,7 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: _surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -341,14 +390,14 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
-                        color: Colors.white38,
+                    style: TextStyle(
+                        color: _onFaint,
                         fontSize: 11,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 4),
                 Text(value,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14, height: 1.4)),
+                    style: TextStyle(
+                        color: _onSurface, fontSize: 14, height: 1.4)),
               ],
             ),
           ),
@@ -361,17 +410,17 @@ class _EmergencyDetailScreenState extends State<EmergencyDetailScreen> {
     return Container(
       height: 80,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: _surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white24, size: 20),
+            Icon(icon, color: _onFaint, size: 20),
             const SizedBox(width: 8),
             Text(message,
-                style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                style: TextStyle(color: _onMuted, fontSize: 12)),
           ],
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../home/home_screen.dart';
+import '../../core/app_routes.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -139,17 +139,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('contact1', _c1Phone.text.trim());
       await prefs.setString('contact2', _c2Phone.text.trim());
-      // Used across the app as the signed-in user's display name.
-      // (Older code used `name1` for contact 1 by mistake.)
       await prefs.setString('name1', _nameController.text.trim());
-      await prefs.setString('name2', _c2Name.text.trim());
+      await prefs.setString('contactName1', _c1Name.text.trim());
+      await prefs.setString('contactName2', _c2Name.text.trim());
 
       if (!mounted) return;
 
-      // 4. Navigate to Home (Where your Profile Tab is)
-      Navigator.pushReplacement(
+      Navigator.pushNamedAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        AppRoutes.permissions,
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       _showSnackBar(e.message ?? 'Authentication failed', Colors.red);

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../services/settings_provider.dart';
-import '../maps/location_screen.dart';
+import '../../core/app_routes.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,7 +18,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = false;
+  bool _isUrdu = false;
   String? _emailError;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
 
   static bool _isValidEmail(String email) =>
       RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
@@ -29,11 +32,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _showSnackBar('Please enter both email and password.', Colors.orange);
+      _showSnackBar(
+          _t('Please enter both email and password.',
+              'براہ کرم ای میل اور پاس ورڈ دونوں درج کریں۔'),
+          Colors.orange);
       return;
     }
     if (!_isValidEmail(email)) {
-      setState(() => _emailError = 'Enter a valid email address');
+      setState(() => _emailError =
+          _t('Enter a valid email address', 'درست ای میل ایڈریس درج کریں'));
       return;
     }
     setState(() => _emailError = null);
@@ -41,20 +48,20 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       await _auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
-
-      // Finalize autofill context on success
       TextInput.finishAutofillContext();
-
       if (!mounted) return;
-      Navigator.pushReplacement(
+      Navigator.pushNamedAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const LocationScreen()),
+        AppRoutes.permissions,
+        (route) => false,
       );
     } catch (e) {
-      _showSnackBar('Login Failed: ${e.toString()}', Colors.red);
+      _showSnackBar(
+          _t('Login Failed: ${e.toString()}', 'لاگ ان ناکام: ${e.toString()}'),
+          Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -64,9 +71,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final String email = _emailController.text.trim();
     if (email.isEmpty) {
       _showSnackBar(
-        'Please enter your email for the reset link.',
-        Colors.orange,
-      );
+          _t('Please enter your email for the reset link.',
+              'براہ کرم ری سیٹ لنک کے لیے اپنا ای میل درج کریں۔'),
+          Colors.orange);
       return;
     }
     try {
@@ -74,27 +81,29 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _showSuccessDialog(email);
     } catch (e) {
-      _showSnackBar('Error: ${e.toString()}', Colors.red);
+      _showSnackBar(
+          _t('Error: ${e.toString()}', 'خرابی: ${e.toString()}'), Colors.red);
     }
   }
 
-  // --- FIX: This helper method was likely missing, causing the red squiggles ---
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   void _showSuccessDialog(String email) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Link Sent'),
-        content: Text('A recovery link was sent to $email.'),
+        title: Text(_t('Reset Link Sent', 'ری سیٹ لنک بھیجا گیا')),
+        content: Text(
+            _t('A recovery link was sent to $email.',
+                '$email پر ریکوری لنک بھیجا گیا۔')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Color(0xFFE53935))),
+            child: const Text('OK',
+                style: TextStyle(color: Color(0xFFE53935))),
           ),
         ],
       ),
@@ -113,8 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final themeProvider = Provider.of<SettingsProvider>(context);
     final bool isDark = themeProvider.themeMode == ThemeMode.dark;
     final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color bg = isDark ? const Color(0xFF0D0D0D) : Colors.white;
 
     return Scaffold(
+      backgroundColor: bg,
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFFE53935)),
@@ -122,14 +133,49 @@ class _LoginScreenState extends State<LoginScreen> {
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                // Wrap with AutofillGroup for the "Save Password" prompt
                 child: AutofillGroup(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 20),
+                      // Language + theme toggles
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap: () => setState(() => _isUrdu = !_isUrdu),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: Colors.redAccent
+                                        .withValues(alpha: 0.4)),
+                              ),
+                              child: Text(_isUrdu ? 'EN' : 'اردو',
+                                  style: const TextStyle(
+                                      color: Colors.redAccent, fontSize: 13)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                                isDark
+                                    ? Icons.wb_sunny_outlined
+                                    : Icons.nightlight_round,
+                                color: isDark ? Colors.amber : Colors.blueGrey),
+                            onPressed: () =>
+                                Provider.of<SettingsProvider>(context,
+                                        listen: false)
+                                    .toggleTheme(!isDark),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 30),
                       Text(
-                        'Welcome back.',
+                        _t('Welcome back.', 'خوش آمدید۔'),
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -138,19 +184,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 48),
                       _buildInputField(
-                        label: 'Email',
+                        label: _t('Email', 'ای میل'),
                         controller: _emailController,
                         isDark: isDark,
                         icon: Icons.email_outlined,
                         autofillHints: [AutofillHints.email],
                         errorText: _emailError,
                         onChanged: (_) {
-                          if (_emailError != null) setState(() => _emailError = null);
+                          if (_emailError != null) {
+                            setState(() => _emailError = null);
+                          }
                         },
                       ),
                       const SizedBox(height: 20),
                       _buildInputField(
-                        label: 'Password',
+                        label: _t('Password', 'پاس ورڈ'),
                         controller: _passwordController,
                         isDark: isDark,
                         icon: Icons.lock_outline,
@@ -161,9 +209,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed: _resetPassword,
-                          child: const Text(
-                            'Forgot Password?',
-                            style: TextStyle(
+                          child: Text(
+                            _t('Forgot Password?', 'پاس ورڈ بھول گئے؟'),
+                            style: const TextStyle(
                               color: Color(0xFFE53935),
                               fontWeight: FontWeight.bold,
                             ),
@@ -182,9 +230,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           onPressed: _login,
-                          child: const Text(
-                            'Log in',
-                            style: TextStyle(
+                          child: Text(
+                            _t('Log in', 'لاگ ان کریں'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -197,7 +245,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "Don't have an account?",
+                            _t("Don't have an account?",
+                                'اکاؤنٹ نہیں ہے؟'),
                             style: TextStyle(
                               color: isDark ? Colors.white54 : Colors.black45,
                             ),
@@ -209,9 +258,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 builder: (_) => const SignUpScreen(),
                               ),
                             ),
-                            child: const Text(
-                              'Create Medical ID',
-                              style: TextStyle(
+                            child: Text(
+                              _t('Create Medical ID', 'میڈیکل ID بنائیں'),
+                              style: const TextStyle(
                                 color: Color(0xFFE53935),
                                 fontWeight: FontWeight.bold,
                               ),
@@ -245,6 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
         errorText: errorText,
         prefixIcon: Icon(icon, color: Colors.grey),
         filled: true,

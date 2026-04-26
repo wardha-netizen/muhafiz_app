@@ -14,6 +14,9 @@ class EmergencyContactsScreen extends StatefulWidget {
 class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   String? contact1, contact2, name1, name2;
   bool _isLoading = true;
+  bool _isUrdu = false;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
 
   @override
   void initState() {
@@ -21,17 +24,14 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
     _loadSavedContacts();
   }
 
-  // Fetches data saved from your Signup or Profile screens
   Future<void> _loadSavedContacts() async {
     setState(() => _isLoading = true);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     setState(() {
-      // IMPORTANT: These keys must match the ones used in your _signUp() method
       contact1 = prefs.getString('contact1');
       contact2 = prefs.getString('contact2');
-      name1 = prefs.getString('name1');
-      name2 = prefs.getString('name2');
+      name1 = prefs.getString('contactName1');
+      name2 = prefs.getString('contactName2');
       _isLoading = false;
     });
   }
@@ -47,80 +47,91 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
       backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
-          'Verified Contacts',
+          _t('Verified Contacts', 'تصدیق شدہ روابط'),
           style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+              ),
+              child: Text(_isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+            ),
+          ),
+          IconButton(
+            icon: Icon(isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                color: isDark ? Colors.amber : Colors.blueGrey),
+            onPressed: () =>
+                Provider.of<SettingsProvider>(context, listen: false).toggleTheme(!isDark),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.redAccent),
-            onPressed: _loadSavedContacts, // Manual refresh if update is missed
+            onPressed: _loadSavedContacts,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.redAccent),
-            )
+          ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
           : Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'The following contacts will be notified in an emergency:',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  Text(
+                    _t(
+                      'The following contacts will be notified in an emergency:',
+                      'ہنگامی صورت میں درج ذیل روابط کو مطلع کیا جائے گا:',
+                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 25),
-
-                  // Contact 1
                   _contactTile(
-                    name1 ?? 'Primary Name Not Set',
-                    contact1 ?? 'No Number Saved',
+                    name1 ?? _t('Primary Name Not Set', 'بنیادی نام نہیں ہے'),
+                    contact1 ?? _t('No Number Saved', 'نمبر محفوظ نہیں'),
                     isDark,
                     Icons.person,
                   ),
-
                   const SizedBox(height: 10),
-
-                  // Contact 2
                   _contactTile(
-                    name2 ?? 'Secondary Name Not Set',
-                    contact2 ?? 'No Number Saved',
+                    name2 ?? _t('Secondary Name Not Set', 'ثانوی نام نہیں ہے'),
+                    contact2 ?? _t('No Number Saved', 'نمبر محفوظ نہیں'),
                     isDark,
                     Icons.person_outline,
                   ),
-
                   const Spacer(),
-
-                  // Verification Note
                   Container(
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
                       color: Colors.redAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.redAccent),
-                        SizedBox(width: 10),
+                        const Icon(Icons.info_outline, color: Colors.redAccent),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Ensure these numbers are correct. They will receive your location during SOS alerts.',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 12,
+                            _t(
+                              'Ensure these numbers are correct. They will receive your location during SOS alerts.',
+                              'یقینی بنائیں کہ یہ نمبر درست ہیں۔ SOS الرٹ کے دوران انہیں آپ کا مقام ملے گا۔',
                             ),
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
                           ),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
                   SizedBox(
                     width: double.infinity,
                     height: 60,
@@ -133,22 +144,22 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                         elevation: 5,
                       ),
                       onPressed: () {
-                        // Check if contacts exist before proceeding
                         if (contact1 == null && contact2 == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
+                            SnackBar(
+                              content: Text(_t(
                                 'Please set at least one contact in Signup!',
-                              ),
+                                'براہ کرم سائن اپ میں کم از کم ایک رابطہ شامل کریں!',
+                              )),
                             ),
                           );
                         } else {
                           Navigator.pushReplacementNamed(context, '/home');
                         }
                       },
-                      child: const Text(
-                        'PROCEED TO HOME',
-                        style: TextStyle(
+                      child: Text(
+                        _t('PROCEED TO HOME', 'ہوم پر جائیں'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
@@ -163,6 +174,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Widget _contactTile(String name, String phone, bool isDark, IconData icon) {
+    final notSet = name.contains('Not Set') || name.contains('نہیں');
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -171,10 +183,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
       ),
       color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[50]!,
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 10,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         leading: CircleAvatar(
           backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
           child: Icon(icon, color: Colors.redAccent),
@@ -186,13 +195,10 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        subtitle: Text(
-          phone,
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
-        ),
+        subtitle: Text(phone, style: const TextStyle(color: Colors.grey, fontSize: 13)),
         trailing: Icon(
           Icons.verified,
-          color: (name.contains('Not Set')) ? Colors.grey : Colors.green,
+          color: notSet ? Colors.grey : Colors.green,
           size: 20,
         ),
       ),

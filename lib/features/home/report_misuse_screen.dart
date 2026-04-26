@@ -17,17 +17,28 @@ class ReportMisuseScreen extends StatefulWidget {
 class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
   final TextEditingController _descController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  bool _isUrdu = false;
 
-  static const List<String> _reasons = [
+  String _t(String en, String ur) => _isUrdu ? ur : en;
+
+  static const List<String> _reasonsEn = [
     'Fake Emergency Alert',
     'Fake Help/Trolling',
     'Inappropriate/Graphic Media',
     'Spam/Harassment',
   ];
 
-  String _selectedReason = 'Fake Emergency Alert';
+  static const List<String> _reasonsUr = [
+    'جھوٹا ہنگامی الرٹ',
+    'جھوٹی مدد / ٹرولنگ',
+    'نامناسب / گرافک میڈیا',
+    'اسپام / ہراساں کرنا',
+  ];
+
+  int _selectedReasonIndex = 0;
   File? _evidenceImage;
   bool _isSubmitting = false;
+
 
   @override
   void dispose() {
@@ -60,8 +71,8 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
   Future<void> _submit() async {
     if (_descController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add a description.'),
+        SnackBar(
+          content: Text(_t('Please add a description.', 'براہ کرم تفصیل شامل کریں۔')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -78,7 +89,7 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       await FirebaseFirestore.instance.collection('reports').add({
         'reporterId': uid,
-        'reportCategory': _selectedReason,
+        'reportCategory': _reasonsEn[_selectedReasonIndex],
         'description': _descController.text.trim(),
         'evidenceUrl': evidenceUrl,
         'timestamp': FieldValue.serverTimestamp(),
@@ -87,11 +98,13 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Report submitted. Thank you for keeping Muhafiz safe.'),
+        SnackBar(
+          content: Text(_t(
+            'Report submitted. Thank you for keeping Muhafiz safe.',
+            'رپورٹ جمع ہو گئی۔ محافظ کو محفوظ رکھنے کا شکریہ۔',
+          )),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
       Navigator.pop(context);
@@ -99,7 +112,7 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: $e'),
+          content: Text(_t('Submission failed: $e', 'جمع کرنا ناکام ہوا: $e')),
           backgroundColor: Colors.red,
         ),
       );
@@ -117,76 +130,110 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final hintColor = isDark ? Colors.white38 : Colors.black38;
     final dividerColor = isDark ? Colors.white10 : Colors.grey.shade300;
+    final reasons = _isUrdu ? _reasonsUr : _reasonsEn;
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
         title: Text(
-          'Report Misuse',
+          _t('Report Misuse', 'غلط استعمال کی رپورٹ'),
           style: TextStyle(
               color: textColor, fontWeight: FontWeight.bold, fontSize: 17),
         ),
         backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
+        actions: [
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border:
+                    Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+              ),
+              child: Text(_isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+                isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                color: isDark ? Colors.amber : Colors.blueGrey),
+            onPressed: () =>
+                Provider.of<SettingsProvider>(context, listen: false)
+                    .toggleTheme(!isDark),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Text(
-              'Help us keep Muhafiz safe',
+              _t('Help us keep Muhafiz safe',
+                  'محافظ کو محفوظ رکھنے میں ہماری مدد کریں'),
               style: TextStyle(
-                  color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text(
-              'All reports are reviewed by our team and kept confidential.',
+              _t(
+                'All reports are reviewed by our team and kept confidential.',
+                'تمام رپورٹیں ہماری ٹیم دیکھتی ہے اور خفیہ رکھی جاتی ہیں۔',
+              ),
               style: TextStyle(color: hintColor, fontSize: 13),
             ),
             Divider(color: dividerColor, height: 32),
 
-            // Reason for Report
-            _sectionLabel('Reason for Report', textColor),
+            _sectionLabel(_t('Reason for Report', 'رپورٹ کی وجہ'), textColor),
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedReason,
+                child: DropdownButton<int>(
+                  value: _selectedReasonIndex,
                   isExpanded: true,
-                  dropdownColor:
-                      isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   style: TextStyle(color: textColor, fontSize: 14),
                   icon: const Icon(Icons.keyboard_arrow_down,
                       color: Colors.redAccent),
-                  items: _reasons
-                      .map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text(r),
-                          ))
-                      .toList(),
-                  onChanged: (val) => setState(() => _selectedReason = val!),
+                  items: List.generate(
+                    reasons.length,
+                    (i) => DropdownMenuItem(
+                      value: i,
+                      child: Text(reasons[i]),
+                    ),
+                  ),
+                  onChanged: (val) =>
+                      setState(() => _selectedReasonIndex = val!),
                 ),
               ),
             ),
             const SizedBox(height: 22),
 
-            // Description
-            _sectionLabel('Description', textColor),
+            _sectionLabel(_t('Description', 'تفصیل'), textColor),
             const SizedBox(height: 10),
             TextField(
               controller: _descController,
               maxLines: 5,
+              textDirection: _isUrdu ? TextDirection.rtl : TextDirection.ltr,
               style: TextStyle(color: textColor),
               decoration: InputDecoration(
-                hintText: 'Describe the issue in detail...',
+                hintText: _t(
+                    'Describe the issue in detail...',
+                    'مسئلے کی تفصیل بیان کریں...'),
                 hintStyle: TextStyle(color: hintColor),
                 filled: true,
                 fillColor: cardBg,
@@ -199,8 +246,9 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Evidence image
-            _sectionLabel('Attach Evidence (optional)', textColor),
+            _sectionLabel(
+                _t('Attach Evidence (optional)', 'ثبوت منسلک کریں (اختیاری)'),
+                textColor),
             const SizedBox(height: 10),
             GestureDetector(
               onTap: _pickImage,
@@ -249,7 +297,7 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
                               color: Colors.redAccent, size: 34),
                           const SizedBox(height: 10),
                           Text(
-                            'Tap to attach image',
+                            _t('Tap to attach image', 'تصویر منسلک کرنے کے لیے تھپتھپائیں'),
                             style: TextStyle(color: hintColor, fontSize: 13),
                           ),
                           const SizedBox(height: 28),
@@ -259,7 +307,6 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
             ),
             const SizedBox(height: 36),
 
-            // Submit button
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -279,9 +326,9 @@ class _ReportMisuseScreenState extends State<ReportMisuseScreen> {
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2.5),
                       )
-                    : const Text(
-                        'Submit Report',
-                        style: TextStyle(
+                    : Text(
+                        _t('Submit Report', 'رپورٹ جمع کریں'),
+                        style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16),

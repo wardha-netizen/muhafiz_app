@@ -11,33 +11,30 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
-    // Don't artificially block startup; keep a tiny delay to let the first frame
-    // render and the logo decode happen smoothly.
-    _timer = Timer(const Duration(milliseconds: 350), _navigateNext);
+    _navigateNext();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Precache the splash logo to avoid a janky first paint on slower devices.
     precacheImage(const AssetImage('assets/images/logo.png'), context);
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  Future<void> _navigateNext() async {
+    // Run minimum splash duration and auth state resolution in parallel.
+    final results = await Future.wait([
+      Future<User?>.delayed(
+        const Duration(milliseconds: 1500),
+        () => FirebaseAuth.instance.currentUser,
+      ),
+      FirebaseAuth.instance.authStateChanges().first,
+    ]);
 
-  void _navigateNext() {
     if (!mounted) return;
-    final user = FirebaseAuth.instance.currentUser;
-    // If already logged in, go straight to Home; otherwise show Login
+    final user = results[1]; // auth state is authoritative
     if (user != null) {
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
@@ -47,10 +44,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

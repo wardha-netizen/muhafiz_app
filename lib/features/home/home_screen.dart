@@ -8,8 +8,8 @@ import '../maps/karachi_emergency_map_screen.dart';
 import '../offline/offline_guide_screen.dart';
 import '../bluetooth/bluetooth_screen.dart';
 import '../disaster/disaster_prediction_screen.dart';
+import 'emergency_contacts_screen.dart';
 import 'madgar_portal_screen.dart';
-import 'permissions_screen.dart';
 import 'report_emergency_screen.dart';
 import 'profile_screen.dart';
 
@@ -43,19 +43,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final snap =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       if (!mounted) return;
-      final data = snap.data();
-      final name = (data?['name'] as String?)?.trim();
-      setState(() => _currentUserName = (name == null || name.isEmpty) ? 'MUHAFIZ User' : name);
-    } catch (_) {
-      // Keep fallback
-    }
+      final name = (snap.data()?['name'] as String?)?.trim();
+      setState(() =>
+          _currentUserName = (name == null || name.isEmpty) ? 'MUHAFIZ User' : name);
+    } catch (_) {}
   }
 
   List<Widget> _getScreens() {
     return [
       _buildHomeMainContent(),
       const ReportEmergencyScreen(),
-      const PermissionsScreen(),
+      const EmergencyContactsScreen(),
       const ProfileScreen(),
     ];
   }
@@ -75,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(user!.uid)
           .get();
       if (!mounted) return;
-
       if (userDoc.exists) {
         final userData = userDoc.data() as Map<String, dynamic>;
         await FirebaseFirestore.instance.collection('emergencies').add({
@@ -107,55 +104,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Main content ────────────────────────────────────────────────────────────
   Widget _buildHomeMainContent() {
     return Consumer<SettingsProvider>(
       builder: (context, themeProvider, _) {
         final bool isDark = themeProvider.themeMode == ThemeMode.dark;
         return SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => setState(() => _isUrdu = !_isUrdu),
-                      child: Text(
-                        _isUrdu ? 'English' : 'اردو',
-                        style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                _buildMedicalHeader(themeProvider),
-                const SizedBox(height: 60),
+                const SizedBox(height: 16),
+                _buildHeader(themeProvider, isDark),
+                const SizedBox(height: 48),
                 Center(
                   child: Text(
-                    _t('TAP OR HOLD SOS IN DANGER',
-                        'خطرے میں SOS کو دبائیں یا ہولڈ کریں'),
+                    _t('TAP FOR REPORT · HOLD FOR INSTANT SOS',
+                        'رپورٹ کے لیے دبائیں · فوری SOS کے لیے ہولڈ کریں'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: isDark ? Colors.white24 : Colors.black26,
-                      fontSize: 12,
-                      letterSpacing: 2,
+                      fontSize: 11,
+                      letterSpacing: 1.5,
                     ),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
                 _buildSOSButton(),
                 const SizedBox(height: 32),
                 _buildQuickActions(isDark),
                 const SizedBox(height: 16),
-                _buildMadgarPortalCard(isDark),
-                const SizedBox(height: 32),
+                _buildMadgarPortalCard(),
+                const SizedBox(height: 24),
                 _buildVolunteerSection(isDark),
                 if (_isVolunteer) ...[
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
                   Text(
                     _t('Nearby Alerts', 'قریبی الرٹس'),
                     style: TextStyle(
@@ -164,9 +148,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 12),
                   _buildLiveFeed(isDark),
                 ],
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -175,115 +160,164 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMedicalHeader(SettingsProvider themeProvider) {
-    final bool isDark = themeProvider.themeMode == ThemeMode.dark;
+  // ── Header with toggles ─────────────────────────────────────────────────────
+  Widget _buildHeader(SettingsProvider themeProvider, bool isDark) {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
           .doc(user?.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          final name = data['name'] ?? 'User';
-          final blood = data['bloodGroup'] ?? '--';
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+        final data = snapshot.hasData && snapshot.data!.exists
+            ? snapshot.data!.data() as Map<String, dynamic>
+            : <String, dynamic>{};
+        final name = (data['name'] as String?)?.trim() ?? _currentUserName;
+        final blood = (data['bloodGroup'] as String?) ?? '--';
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Name + blood group
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     _t('Hello, $name', 'ہیلو، $name'),
                     style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                      fontSize: 28,
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   Text(
-                    'Blood Group: $blood',
+                    '${_t('Blood Group', 'بلڈ گروپ')}: $blood',
                     style: const TextStyle(
-                        color: Colors.redAccent, fontWeight: FontWeight.bold),
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
-              Switch(
-                value: isDark,
-                onChanged: (v) => themeProvider.toggleTheme(v),
+            ),
+            const SizedBox(width: 8),
+            // Language pill
+            GestureDetector(
+              onTap: () => setState(() => _isUrdu = !_isUrdu),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border:
+                      Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  _isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ],
-          );
-        }
-        return const LinearProgressIndicator(color: Colors.redAccent);
+            ),
+            // Theme toggle
+            IconButton(
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                color: isDark ? Colors.amber : Colors.blueGrey,
+                size: 22,
+              ),
+              onPressed: () => themeProvider.toggleTheme(!isDark),
+            ),
+          ],
+        );
       },
     );
   }
 
+  // ── SOS button ──────────────────────────────────────────────────────────────
   Widget _buildSOSButton() {
     return Center(
       child: GestureDetector(
         onTap: _navigateToReport,
         onLongPress: _triggerQuickSOS,
-        child: Container(
-          height: 200,
-          width: 200,
-          decoration: const BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.redAccent, blurRadius: 20)],
-          ),
-          child: const Center(
-            child: Text(
-              'SOS',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
+        child: LayoutBuilder(
+          builder: (context, _) {
+            final size = (MediaQuery.of(context).size.width * 0.48)
+                .clamp(140.0, 200.0);
+            return Container(
+              height: size,
+              width: size,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.redAccent, blurRadius: 24, spreadRadius: 2)
+                ],
+              ),
+              child: const Center(
+                child: Text(
+                  'SOS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
+  // ── Quick actions ───────────────────────────────────────────────────────────
   Widget _buildQuickActions(bool isDark) {
     final actions = [
       (
         icon: Icons.offline_bolt,
-        label: _t('Offline Guide', 'آف لائن گائیڈ'),
-        color: Colors.green.shade700,
+        label: _t('Offline\nGuide', 'آف لائن\nگائیڈ'),
+        color: Colors.green.shade600,
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const OfflineGuideScreen())),
       ),
       (
         icon: Icons.analytics,
-        label: _t('Disaster Analysis', 'آفات تجزیہ'),
-        color: Colors.orange.shade700,
+        label: _t('Disaster\nAnalysis', 'آفات\nتجزیہ'),
+        color: Colors.orange.shade600,
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const DisasterPredictionScreen())),
       ),
       (
         icon: Icons.map,
-        label: _t('Emergency Map', 'ہنگامی نقشہ'),
-        color: Colors.blue.shade700,
+        label: _t('Emergency\nMap', 'ہنگامی\nنقشہ'),
+        color: Colors.blue.shade600,
         onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const KarachiEmergencyMapScreen())),
+            MaterialPageRoute(
+                builder: (_) => const KarachiEmergencyMapScreen())),
       ),
       (
         icon: Icons.bluetooth_searching,
-        label: _t('BT Alerts', 'بلوٹوتھ الرٹ'),
-        color: Colors.purple.shade700,
+        label: _t('BT\nAlerts', 'بلوٹوتھ\nالرٹ'),
+        color: Colors.purple.shade600,
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const BluetoothScreen())),
       ),
     ];
 
-    final bg = isDark ? const Color(0xFF121212) : Colors.white;
-    final surface = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F7FB);
+    final surface =
+        isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F7FB);
     final onSurface = isDark ? Colors.white70 : Colors.black87;
-    final labelColor = isDark ? Colors.white54 : Colors.black45;
+    final labelColor = isDark ? Colors.white38 : Colors.black38;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,64 +325,54 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           _t('Quick Actions', 'فوری اقدامات'),
           style: TextStyle(
-            color: labelColor,
-            fontSize: 12,
-            letterSpacing: 1.2,
-          ),
+              color: labelColor, fontSize: 11, letterSpacing: 1.4),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
             color: surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.05),
+              color: isDark
+                  ? Colors.white12
+                  : Colors.black12.withValues(alpha: 0.05),
             ),
             boxShadow: isDark
                 ? const []
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 18,
-                      offset: const Offset(0, 10),
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
                     ),
                   ],
           ),
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           child: Row(
             children: actions.map((a) {
               return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: a.onTap,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        // Keep Quick Actions neutral to match theme (no tinted tiles).
-                        color: isDark ? const Color(0xFF121212) : bg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : Colors.black12.withValues(alpha: 0.06),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(a.icon, color: a.color, size: 24),
-                          const SizedBox(height: 6),
-                          Text(
-                            a.label,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: onSurface,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: a.onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(a.icon, color: a.color, size: 26),
+                        const SizedBox(height: 6),
+                        Text(
+                          a.label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: onSurface,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -360,7 +384,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMadgarPortalCard(bool isDark) {
+  // ── Madgar portal card ──────────────────────────────────────────────────────
+  Widget _buildMadgarPortalCard() {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -408,11 +433,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Volunteer section ───────────────────────────────────────────────────────
   Widget _buildVolunteerSection(bool isDark) {
     return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
       title: Text(
         _t('Volunteer Mode', 'رضاکارانہ موڈ'),
-        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w500),
+      ),
+      subtitle: Text(
+        _t('See & respond to nearby emergencies',
+            'قریبی ہنگامی صورتحال دیکھیں اور جواب دیں'),
+        style: TextStyle(
+            color: isDark ? Colors.white38 : Colors.black38, fontSize: 12),
       ),
       value: _isVolunteer,
       activeThumbColor: Colors.redAccent,
@@ -420,6 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Live feed ───────────────────────────────────────────────────────────────
   Widget _buildLiveFeed(bool isDark) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -437,35 +473,30 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
         if (snapshot.hasError) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Could not load emergencies.',
-                style: TextStyle(color: Colors.grey)),
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              _t('Could not load emergencies.', 'ہنگامی صورتحال لوڈ نہیں ہو سکی۔'),
+              style: const TextStyle(color: Colors.grey),
+            ),
           );
         }
 
         final docs = snapshot.data?.docs ?? const [];
-        if (docs.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('No recent emergencies right now.',
-                style: TextStyle(color: Colors.grey)),
-          );
-        }
-
-        // Keep UI robust even if older documents have inconsistent `status` values.
         final filtered = docs.where((d) {
-          final data = d.data() as Map<String, dynamic>;
-          final status = (data['status'] ?? '').toString().trim().toLowerCase();
-          if (status.isEmpty) return true; // legacy docs
-          return status == 'active' || status == 'critical';
+          final status =
+              ((d.data() as Map)['status'] ?? '').toString().trim().toLowerCase();
+          return status.isEmpty || status == 'active' || status == 'critical';
         }).toList();
 
         if (filtered.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('No recent emergencies right now.',
-                style: TextStyle(color: Colors.grey)),
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              _t('No recent emergencies right now.',
+                  'ابھی کوئی حالیہ ہنگامی صورتحال نہیں۔'),
+              style: const TextStyle(color: Colors.grey),
+            ),
           );
         }
 
@@ -488,14 +519,15 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+                border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.25)),
                 boxShadow: isDark
                     ? const []
                     : [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 14,
-                          offset: const Offset(0, 8),
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
                         ),
                       ],
               ),
@@ -507,54 +539,46 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          type,
-                          style: TextStyle(
-                            color: titleColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(type,
+                            style: TextStyle(
+                                color: titleColor,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
                         Text(
-                          'Reported by: $reporter',
+                          '${_t('Reported by', 'رپورٹ کرنے والا')}: $reporter',
                           style: TextStyle(color: subColor, fontSize: 12),
                         ),
                         if (location.isNotEmpty)
-                          Text(
-                            location,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: metaColor, fontSize: 11),
-                          ),
+                          Text(location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  TextStyle(color: metaColor, fontSize: 11)),
                         if (ts != null)
                           Text(
                             '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white24
-                                  : Colors.black38.withValues(alpha: 0.7),
-                              fontSize: 11,
-                            ),
+                            style: TextStyle(color: metaColor, fontSize: 11),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: user == null
                         ? null
                         : () => _volunteerForEmergency(emergencyId: d.id),
-                    child: const Text(
-                      'Volunteer',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    child: Text(
+                      _t('Help', 'مدد'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
                 ],
@@ -569,61 +593,66 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _volunteerForEmergency({required String emergencyId}) async {
     final uid = user?.uid;
     if (uid == null) return;
-
     try {
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        final emerRef =
-            FirebaseFirestore.instance.collection('emergencies').doc(emergencyId);
+        final emerRef = FirebaseFirestore.instance
+            .collection('emergencies')
+            .doc(emergencyId);
         final volRef = emerRef.collection('volunteers').doc(uid);
-
         final existing = await tx.get(volRef);
         if (existing.exists) return;
-
         tx.set(volRef, {
           'volunteerId': uid,
           'volunteerName': _currentUserName,
           'timestamp': FieldValue.serverTimestamp(),
         });
-        tx.update(emerRef, {
-          'volunteerCount': FieldValue.increment(1),
-        });
+        tx.update(emerRef, {'volunteerCount': FieldValue.increment(1)});
       });
-
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You volunteered for this emergency.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('You volunteered for this emergency.',
+            'آپ نے اس ہنگامی صورتحال میں رضاکاری کی۔')),
+        backgroundColor: Colors.green,
+      ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not volunteer: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            _t('Could not volunteer: $e', 'رضاکاری نہیں ہو سکی: $e')),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 
+  // ── Bottom nav ──────────────────────────────────────────────────────────────
   Widget _buildBottomNav(bool isDark) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
       onTap: (i) => setState(() => _selectedIndex = i),
       selectedItemColor: Colors.redAccent,
       unselectedItemColor: Colors.grey,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       type: BottomNavigationBarType.fixed,
+      selectedLabelStyle:
+          const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+      unselectedLabelStyle: const TextStyle(fontSize: 11),
       items: [
         BottomNavigationBarItem(
-            icon: const Icon(Icons.home), label: _t('Home', 'ہوم')),
+            icon: const Icon(Icons.home_outlined),
+            activeIcon: const Icon(Icons.home),
+            label: _t('Home', 'ہوم')),
         BottomNavigationBarItem(
-            icon: const Icon(Icons.report), label: _t('Report', 'رپورٹ')),
+            icon: const Icon(Icons.report_outlined),
+            activeIcon: const Icon(Icons.report),
+            label: _t('Report', 'رپورٹ')),
         BottomNavigationBarItem(
-            icon: const Icon(Icons.security),
-            label: _t('Permissions', 'اجازتیں')),
+            icon: const Icon(Icons.contacts_outlined),
+            activeIcon: const Icon(Icons.contacts),
+            label: _t('Contacts', 'روابط')),
         BottomNavigationBarItem(
-            icon: const Icon(Icons.person), label: _t('Profile', 'پروفائل')),
+            icon: const Icon(Icons.person_outline),
+            activeIcon: const Icon(Icons.person),
+            label: _t('Profile', 'پروفائل')),
       ],
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/air_quality_service.dart';
 import '../../services/earthquake_service.dart';
 import '../../services/marine_service.dart';
+import '../../services/settings_provider.dart';
 import '../../services/weather_service.dart';
 
 class DisasterPredictionScreen extends StatefulWidget {
@@ -19,8 +21,22 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
   List<EarthquakeEvent> _quakes = [];
   List<DisasterRisk> _risks = [];
   bool _loading = true;
+  bool _isUrdu = false;
   String? _error;
   DateTime? _lastFetch;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
+
+  bool get _isDark =>
+      Provider.of<SettingsProvider>(context, listen: false).themeMode ==
+      ThemeMode.dark;
+  Color get _bg =>
+      _isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF5F5F5);
+  Color get _surface => _isDark ? const Color(0xFF1A1A1A) : Colors.white;
+  Color get _onSurface => _isDark ? Colors.white : Colors.black87;
+  Color get _onMuted => _isDark ? Colors.white54 : Colors.black54;
+  Color get _onFaint => _isDark ? Colors.white38 : Colors.black38;
+  Color get _onVeryFaint => _isDark ? Colors.white24 : Colors.black26;
 
   @override
   void initState() {
@@ -35,10 +51,10 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
     });
 
     try {
-      // All APIs are 100% free — no key needed
       final results = await Future.wait([
         WeatherService.fetchKarachiWeather(),
-        EarthquakeService.fetchNearKarachi(days: 7, minMagnitude: 2.0, radiusKm: 500),
+        EarthquakeService.fetchNearKarachi(
+            days: 7, minMagnitude: 2.0, radiusKm: 500),
         AirQualityService.fetchKarachiAirQuality(),
         MarineService.fetchArabianSeaData(),
       ]);
@@ -84,14 +100,19 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when theme changes
+    Provider.of<SettingsProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: _bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Pre-Disaster Analysis',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        iconTheme: IconThemeData(color: _onSurface),
+        title: Text(
+          _t('Pre-Disaster Analysis', 'قبل از آفت تجزیہ'),
+          style: TextStyle(
+              color: _onSurface, fontWeight: FontWeight.bold),
         ),
         actions: [
           if (_lastFetch != null)
@@ -99,28 +120,55 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(
-                  'Updated ${_timeSince(_lastFetch!)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  _t('Updated ${_timeSince(_lastFetch!)}',
+                      '${_timeSince(_lastFetch!)} پہلے اپ ڈیٹ ہوا'),
+                  style: TextStyle(color: _onMuted, fontSize: 11),
                 ),
               ),
             ),
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border:
+                    Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+              ),
+              child: Text(_isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(
+                _isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                color: _isDark ? Colors.amber : Colors.blueGrey),
+            onPressed: () =>
+                Provider.of<SettingsProvider>(context, listen: false)
+                    .toggleTheme(!_isDark),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: _onSurface),
             onPressed: _loading ? null : _fetchAll,
           ),
         ],
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: Colors.redAccent),
-                  SizedBox(height: 16),
+                  const CircularProgressIndicator(color: Colors.redAccent),
+                  const SizedBox(height: 16),
                   Text(
-                    'Fetching live data…\nOpen-Meteo · USGS · Air Quality · Marine',
+                    _t(
+                      'Fetching live data…\nOpen-Meteo · USGS · Air Quality · Marine',
+                      'لائیو ڈیٹا حاصل کیا جا رہا ہے…\nOpen-Meteo · USGS · فضائی معیار · سمندری',
+                    ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: _onMuted),
                   ),
                 ],
               ),
@@ -138,17 +186,18 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.signal_wifi_off, color: Colors.white38, size: 64),
+            Icon(Icons.signal_wifi_off, color: _onFaint, size: 64),
             const SizedBox(height: 16),
-            const Text('Could not load live data.',
-                style: TextStyle(color: Colors.white, fontSize: 18)),
+            Text(_t('Could not load live data.', 'لائیو ڈیٹا لوڈ نہیں ہو سکا۔'),
+                style: TextStyle(color: _onSurface, fontSize: 18)),
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            Text(_error!,
+                style: TextStyle(color: _onFaint, fontSize: 12)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(_t('Retry', 'دوبارہ کوشش')),
               onPressed: _fetchAll,
             ),
           ],
@@ -158,8 +207,8 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
   }
 
   Widget _buildContent() {
-    // Overall threat level = highest risk level across all assessments
-    final highestLevel = _risks.isEmpty ? RiskLevel.safe : _risks.first.level;
+    final highestLevel =
+        _risks.isEmpty ? RiskLevel.safe : _risks.first.level;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -168,7 +217,9 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
         const SizedBox(height: 16),
         if (_weather != null) _buildWeatherCard(),
         const SizedBox(height: 16),
-        _buildSectionLabel('DISASTER RISK ASSESSMENTS — ${_risks.length} categories'),
+        _buildSectionLabel(
+            _t('DISASTER RISK ASSESSMENTS — ${_risks.length} categories',
+                'آفت کے خطرے کا جائزہ — ${_risks.length} زمرے')),
         const SizedBox(height: 8),
         ..._risks.map(_buildRiskCard),
         const SizedBox(height: 8),
@@ -179,12 +230,13 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
     );
   }
 
-  // ── Overall threat banner ──────────────────────────────────────────────────
   Widget _buildOverallStatus(RiskLevel level) {
     final col = _levelColor(level);
     final label = _levelLabel(level);
-    final criticalCount = _risks.where((r) => r.level == RiskLevel.critical).length;
-    final warningCount = _risks.where((r) => r.level == RiskLevel.warning).length;
+    final criticalCount =
+        _risks.where((r) => r.level == RiskLevel.critical).length;
+    final warningCount =
+        _risks.where((r) => r.level == RiskLevel.warning).length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -210,18 +262,21 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Karachi — Overall Threat: $label',
+                  '${_t('Karachi — Overall Threat:', 'کراچی — مجموعی خطرہ:')} $label',
                   style: TextStyle(
-                      color: col, fontWeight: FontWeight.bold, fontSize: 15),
+                      color: col,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   criticalCount > 0
-                      ? '$criticalCount CRITICAL · $warningCount WARNING across ${_risks.length} categories'
+                      ? '$criticalCount ${_t('CRITICAL', 'انتہائی خطرہ')} · $warningCount ${_t('WARNING', 'انتباہ')} ${_t('across', 'کے ساتھ')} ${_risks.length} ${_t('categories', 'زمرے')}'
                       : warningCount > 0
-                          ? '$warningCount WARNING conditions detected'
-                          : 'No significant threats detected',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          ? '$warningCount ${_t('WARNING conditions detected', 'انتباہ کی صورتحال')}'
+                          : _t('No significant threats detected',
+                              'کوئی قابل ذکر خطرہ نہیں'),
+                  style: TextStyle(color: _onMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -234,12 +289,11 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
   Widget _buildSectionLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
-          color: Colors.white38, fontSize: 10, letterSpacing: 1.2),
+      style: TextStyle(
+          color: _onFaint, fontSize: 10, letterSpacing: 1.2),
     );
   }
 
-  // ── Current conditions strip ───────────────────────────────────────────────
   Widget _buildWeatherCard() {
     final w = _weather!;
     return Container(
@@ -255,24 +309,30 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'KARACHI — CURRENT CONDITIONS',
-            style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1.2),
+          Text(
+            _t('KARACHI — CURRENT CONDITIONS', 'کراچی — موجودہ حالات'),
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 10, letterSpacing: 1.2),
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _metricTile(Icons.thermostat,
-                  '${w.temperature.toStringAsFixed(1)}°C', 'Temp'),
+                  '${w.temperature.toStringAsFixed(1)}°C',
+                  _t('Temp', 'درجہ')),
               _metricTile(Icons.device_thermostat,
-                  '${w.apparentTemperature.toStringAsFixed(1)}°C', 'Feels'),
+                  '${w.apparentTemperature.toStringAsFixed(1)}°C',
+                  _t('Feels', 'محسوس')),
               _metricTile(Icons.water_drop,
-                  '${w.humidity.toStringAsFixed(0)}%', 'Humidity'),
+                  '${w.humidity.toStringAsFixed(0)}%',
+                  _t('Humid', 'نمی')),
               _metricTile(Icons.air,
-                  '${w.windSpeed.toStringAsFixed(0)} km/h', 'Wind'),
+                  '${w.windSpeed.toStringAsFixed(0)} km/h',
+                  _t('Wind', 'ہوا')),
               _metricTile(Icons.grain,
-                  '${w.precipitation.toStringAsFixed(1)} mm', 'Rain'),
+                  '${w.precipitation.toStringAsFixed(1)} mm',
+                  _t('Rain', 'بارش')),
             ],
           ),
           const SizedBox(height: 12),
@@ -288,13 +348,15 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
                             : Colors.green),
                 const SizedBox(width: 8),
                 _pillBadge(
-                    'Dust ${_airQuality!.dust.toStringAsFixed(0)} μg/m³',
+                    '${_t('Dust', 'گرد')} ${_airQuality!.dust.toStringAsFixed(0)} μg/m³',
                     _airQuality!.dust > 200 ? Colors.orange : Colors.green),
                 const SizedBox(width: 8),
                 if (_marine != null)
                   _pillBadge(
-                      'Waves ${_marine!.waveHeight.toStringAsFixed(1)} m',
-                      _marine!.waveHeight > 2.5 ? Colors.orange : Colors.green),
+                      '${_t('Waves', 'لہریں')} ${_marine!.waveHeight.toStringAsFixed(1)} m',
+                      _marine!.waveHeight > 2.5
+                          ? Colors.orange
+                          : Colors.green),
               ],
             ),
             const SizedBox(height: 10),
@@ -310,7 +372,7 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Rain probability: ${w.precipProbability.toStringAsFixed(0)}%',
+            '${_t('Rain probability:', 'بارش کا امکان:')} ${w.precipProbability.toStringAsFixed(0)}%',
             style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
@@ -339,21 +401,22 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
         const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12)),
         Text(label,
             style: const TextStyle(color: Colors.white54, fontSize: 10)),
       ],
     );
   }
 
-  // ── Risk card ──────────────────────────────────────────────────────────────
   Widget _buildRiskCard(DisasterRisk risk) {
     final col = _levelColor(risk.level);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: _surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: col.withValues(alpha: 0.4)),
       ),
@@ -369,8 +432,10 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
           ),
           title: Text(
             risk.title,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(
+                color: _onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 14),
           ),
           trailing: _levelBadge(risk.level),
           children: [
@@ -380,7 +445,8 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(risk.description,
-                      style: TextStyle(color: col, fontSize: 13, height: 1.4)),
+                      style:
+                          TextStyle(color: col, fontSize: 13, height: 1.4)),
                   const SizedBox(height: 10),
                   ...risk.indicators.map(
                     (ind) => Padding(
@@ -388,13 +454,13 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.arrow_right,
-                              size: 16, color: Colors.white54),
+                          Icon(Icons.arrow_right,
+                              size: 16, color: _onMuted),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(ind,
-                                style: const TextStyle(
-                                    color: Colors.white70, fontSize: 12)),
+                                style: TextStyle(
+                                    color: _onMuted, fontSize: 12)),
                           ),
                         ],
                       ),
@@ -420,22 +486,24 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
       ),
       child: Text(
         _levelLabel(level),
-        style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold),
+        style:
+            TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  // ── Earthquake event list ──────────────────────────────────────────────────
   Widget _buildQuakeList() {
     final recent = _quakes.take(5).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'RECENT SEISMIC EVENTS (USGS)',
-            style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1.2),
+            _t('RECENT SEISMIC EVENTS (USGS)',
+                'حالیہ زلزلوں کی سرگرمی (USGS)'),
+            style: TextStyle(
+                color: _onFaint, fontSize: 10, letterSpacing: 1.2),
           ),
         ),
         ...recent.map((q) {
@@ -446,9 +514,10 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
                   : Colors.yellow;
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: _surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -470,14 +539,14 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(q.place,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
+                          style: TextStyle(
+                              color: _onSurface, fontSize: 13),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       Text(
                         '${q.distanceKm.toStringAsFixed(0)} km · ${q.depthKm.toStringAsFixed(0)} km deep · ${q.timeAgo}',
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 11),
+                        style: TextStyle(
+                            color: _onMuted, fontSize: 11),
                       ),
                     ],
                   ),
@@ -490,39 +559,39 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
     );
   }
 
-  // ── Data sources ───────────────────────────────────────────────────────────
   Widget _buildDataSourceNote() {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: _surface,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'DATA SOURCES — ALL FREE, NO API KEY REQUIRED',
+            _t('DATA SOURCES — ALL FREE, NO API KEY REQUIRED',
+                'ڈیٹا ذرائع — سب مفت، کوئی API کی ضرورت نہیں'),
             style: TextStyle(
-                color: Colors.white38, fontSize: 10, letterSpacing: 1.1),
+                color: _onFaint, fontSize: 10, letterSpacing: 1.1),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text('• Weather & Heatwave:   Open-Meteo (open-meteo.com)',
-              style: TextStyle(color: Colors.white24, fontSize: 11)),
+              style: TextStyle(color: _onVeryFaint, fontSize: 11)),
           Text('• Air Quality & Dust:   Open-Meteo Air Quality API',
-              style: TextStyle(color: Colors.white24, fontSize: 11)),
+              style: TextStyle(color: _onVeryFaint, fontSize: 11)),
           Text('• Coastal & Marine:     Open-Meteo Marine API (Arabian Sea)',
-              style: TextStyle(color: Colors.white24, fontSize: 11)),
+              style: TextStyle(color: _onVeryFaint, fontSize: 11)),
           Text('• Seismic Activity:     USGS Earthquake Hazards Program',
-              style: TextStyle(color: Colors.white24, fontSize: 11)),
-          Text('• All data refreshes on demand. Internet required for live data.',
-              style: TextStyle(color: Colors.white24, fontSize: 11)),
+              style: TextStyle(color: _onVeryFaint, fontSize: 11)),
+          Text(
+              '• ${_t('All data refreshes on demand. Internet required for live data.', 'تمام ڈیٹا ضرورت پر اپ ڈیٹ ہوتا ہے۔ لائیو ڈیٹا کے لیے انٹرنیٹ ضروری ہے۔')}',
+              style: TextStyle(color: _onVeryFaint, fontSize: 11)),
         ],
       ),
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   Color _levelColor(RiskLevel l) {
     switch (l) {
       case RiskLevel.critical:
@@ -539,13 +608,13 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
   String _levelLabel(RiskLevel l) {
     switch (l) {
       case RiskLevel.critical:
-        return 'CRITICAL';
+        return _t('CRITICAL', 'انتہائی خطرہ');
       case RiskLevel.warning:
-        return 'WARNING';
+        return _t('WARNING', 'انتباہ');
       case RiskLevel.watch:
-        return 'WATCH';
+        return _t('WATCH', 'نگران');
       case RiskLevel.safe:
-        return 'SAFE';
+        return _t('SAFE', 'محفوظ');
     }
   }
 
@@ -589,8 +658,8 @@ class _DisasterPredictionScreenState extends State<DisasterPredictionScreen> {
 
   String _timeSince(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
+    if (diff.inSeconds < 60) return _t('just now', 'ابھی');
+    if (diff.inMinutes < 60) return '${diff.inMinutes}${_t('m ago', ' منٹ پہلے')}';
+    return '${diff.inHours}${_t('h ago', ' گھنٹے پہلے')}';
   }
 }

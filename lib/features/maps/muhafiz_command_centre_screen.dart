@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import '../../services/places_service.dart';
+import '../../services/settings_provider.dart';
 
 class MuhafizCommandCentreScreen extends StatelessWidget {
   const MuhafizCommandCentreScreen({
@@ -45,7 +47,10 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
   final PlacesService _placesService = PlacesService();
   List<Map<String, dynamic>> _places = [];
   bool _isLoading = true;
+  bool _isUrdu = false;
   String? _error;
+
+  String _t(String en, String ur) => _isUrdu ? ur : en;
 
   @override
   void initState() {
@@ -117,17 +122,37 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark =
+        Provider.of<SettingsProvider>(context).themeMode == ThemeMode.dark;
     final color = _emergencyColor();
     final radius = _computeImpactRadiusMeters();
+    final sheetBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final sheetText = isDark ? Colors.white : Colors.black87;
+    final sheetMuted = isDark ? Colors.white70 : Colors.black54;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.emergencyType} Command Centre'),
+        title: Text('${widget.emergencyType} ${_t('Command Centre', 'کمانڈ سینٹر')}'),
         backgroundColor: color,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          GestureDetector(
+            onTap: () => setState(() => _isUrdu = !_isUrdu),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+              ),
+              child: Text(_isUrdu ? 'EN' : 'اردو',
+                  style: const TextStyle(color: Colors.white, fontSize: 13)),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadContextualData,
           ),
         ],
@@ -161,7 +186,6 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
               ),
               MarkerLayer(
                 markers: [
-                  // User marker
                   Marker(
                     point: widget.userLocation,
                     width: 44,
@@ -178,7 +202,6 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                       child: Icon(Icons.my_location, size: 22, color: color),
                     ),
                   ),
-                  // Nearby place markers
                   ..._places.map((p) {
                     final lat = p['lat'] as double;
                     final lng = p['lng'] as double;
@@ -187,7 +210,8 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                       width: 36,
                       height: 36,
                       child: GestureDetector(
-                        onTap: () => _showPlaceSheet(p),
+                        onTap: () => _showPlaceSheet(
+                            p, sheetBg, sheetText, sheetMuted),
                         child: Container(
                           decoration: BoxDecoration(
                             color: color,
@@ -196,11 +220,8 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                               BoxShadow(color: Colors.black38, blurRadius: 4),
                             ],
                           ),
-                          child: Icon(
-                            _categoryIcon(),
-                            size: 20,
-                            color: Colors.white,
-                          ),
+                          child: Icon(_categoryIcon(),
+                              size: 20, color: Colors.white),
                         ),
                       ),
                     );
@@ -227,7 +248,7 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    'Could not load nearby places: $_error',
+                    '${_t('Could not load nearby places:', 'قریبی مقامات لوڈ نہیں ہو سکے:')} $_error',
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
@@ -239,13 +260,15 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
               right: 12,
               bottom: 12,
               child: Material(
-                color: Colors.grey.shade800,
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(12),
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
                   child: Text(
-                    'No nearby services found in this area.',
-                    style: TextStyle(color: Colors.white70),
+                    _t('No nearby services found in this area.',
+                        'اس علاقے میں کوئی قریبی سروس نہیں ملی۔'),
+                    style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54),
                   ),
                 ),
               ),
@@ -271,10 +294,11 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
     }
   }
 
-  void _showPlaceSheet(Map<String, dynamic> place) {
+  void _showPlaceSheet(Map<String, dynamic> place, Color bg, Color text,
+      Color muted) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -285,18 +309,15 @@ class _DynamicEmergencyMapState extends State<DynamicEmergencyMap> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              (place['name'] ?? 'Nearby service').toString(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+              (place['name'] ?? _t('Nearby service', 'قریبی سروس')).toString(),
+              style: TextStyle(
+                  color: text, fontSize: 17, fontWeight: FontWeight.bold),
             ),
             if (place['phone'] != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Phone: ${place['phone']}',
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                '${_t('Phone:', 'فون:')} ${place['phone']}',
+                style: TextStyle(color: muted, fontSize: 14),
               ),
             ],
           ],

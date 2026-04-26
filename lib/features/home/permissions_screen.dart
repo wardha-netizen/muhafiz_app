@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import '../../services/settings_provider.dart';
+import '../../core/app_routes.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../services/settings_provider.dart';
 
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen({super.key});
@@ -163,8 +164,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                   ),
                 ),
                 onPressed: () {
-                  // This matches the key in your main.dart exactly
-                  Navigator.pushNamed(context, '/emergency_contacts');
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.home,
+                    (route) => false,
+                  );
                 },
                 child: Text(
                   _t('PROCEED', 'آگے بڑھیں'),
