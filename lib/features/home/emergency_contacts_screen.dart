@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../services/settings_provider.dart';
@@ -26,12 +28,53 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
 
   Future<void> _loadSavedContacts() async {
     setState(() => _isLoading = true);
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+
+    var c1 = prefs.getString('contact1');
+    var c2 = prefs.getString('contact2');
+    var n1 = prefs.getString('contactName1');
+    var n2 = prefs.getString('contactName2');
+
+    // SharedPreferences empty → user logged in on a new device without signing up.
+    // Pull contacts from Firestore and cache them locally.
+    if (c1 == null && c2 == null) {
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .get();
+          if (doc.exists) {
+            final contacts = (doc.data()!['contacts'] as List?) ?? [];
+            if (contacts.isNotEmpty) {
+              n1 = (contacts[0] as Map)['name']?.toString();
+              c1 = (contacts[0] as Map)['phone']?.toString();
+            }
+            if (contacts.length > 1) {
+              n2 = (contacts[1] as Map)['name']?.toString();
+              c2 = (contacts[1] as Map)['phone']?.toString();
+            }
+            // Cache so every other screen gets them from SharedPreferences next time
+            if (c1?.isNotEmpty == true) {
+              await prefs.setString('contact1', c1!);
+              if (n1 != null) await prefs.setString('contactName1', n1);
+            }
+            if (c2?.isNotEmpty == true) {
+              await prefs.setString('contact2', c2!);
+              if (n2 != null) await prefs.setString('contactName2', n2);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
     setState(() {
-      contact1 = prefs.getString('contact1');
-      contact2 = prefs.getString('contact2');
-      name1 = prefs.getString('contactName1');
-      name2 = prefs.getString('contactName2');
+      contact1 = c1;
+      contact2 = c2;
+      name1 = n1;
+      name2 = n2;
       _isLoading = false;
     });
   }

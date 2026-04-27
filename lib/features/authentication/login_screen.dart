@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/settings_provider.dart';
 import '../../core/app_routes.dart';
 import 'signup_screen.dart';
@@ -19,9 +20,29 @@ class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = false;
   bool _isUrdu = false;
+  bool _showPassword = false;
+  bool _rememberMe = false;
   String? _emailError;
 
   String _t(String en, String ur) => _isUrdu ? ur : en;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail();
+  }
+
+  Future<void> _loadSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? false;
+    if (remember) {
+      final savedEmail = prefs.getString('saved_email') ?? '';
+      setState(() {
+        _emailController.text = savedEmail;
+        _rememberMe = true;
+      });
+    }
+  }
 
   static bool _isValidEmail(String email) =>
       RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
@@ -51,6 +72,14 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString('saved_email', email);
+        await prefs.setBool('remember_me', true);
+      } else {
+        await prefs.remove('saved_email');
+        await prefs.setBool('remember_me', false);
+      }
       TextInput.finishAutofillContext();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
@@ -203,7 +232,26 @@ class _LoginScreenState extends State<LoginScreen> {
                         isDark: isDark,
                         icon: Icons.lock_outline,
                         isPassword: true,
+                        showPassword: _showPassword,
+                        onToggleVisibility: () =>
+                            setState(() => _showPassword = !_showPassword),
                         autofillHints: [AutofillHints.password],
+                      ),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _rememberMe,
+                            activeColor: const Color(0xFFE53935),
+                            onChanged: (val) =>
+                                setState(() => _rememberMe = val ?? false),
+                          ),
+                          Text(
+                            _t('Remember me', 'مجھے یاد رکھیں'),
+                            style: TextStyle(
+                                color:
+                                    isDark ? Colors.white70 : Colors.black54),
+                          ),
+                        ],
                       ),
                       Align(
                         alignment: Alignment.centerRight,
@@ -282,13 +330,15 @@ class _LoginScreenState extends State<LoginScreen> {
     required bool isDark,
     IconData? icon,
     bool isPassword = false,
+    bool showPassword = false,
+    VoidCallback? onToggleVisibility,
     Iterable<String>? autofillHints,
     String? errorText,
     ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
-      obscureText: isPassword,
+      obscureText: isPassword && !showPassword,
       autofillHints: autofillHints,
       onChanged: onChanged,
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
@@ -297,6 +347,16 @@ class _LoginScreenState extends State<LoginScreen> {
         labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
         errorText: errorText,
         prefixIcon: Icon(icon, color: Colors.grey),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  showPassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                  size: 20,
+                ),
+                onPressed: onToggleVisibility,
+              )
+            : null,
         filled: true,
         fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[200],
         border: OutlineInputBorder(

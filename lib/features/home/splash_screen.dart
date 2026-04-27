@@ -44,23 +44,33 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final logoSize = MediaQuery.of(context).size.width * 0.78;
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
+      body: Stack(
+        children: [
+          // Logo dead-centre of the screen
+          Center(
+            child: Image.asset(
               'assets/images/logo.png',
-              width: MediaQuery.of(context).size.width * 0.65,
+              width: logoSize,
+              height: logoSize,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 32),
-            const CircularProgressIndicator(
-              color: Color(0xFFE53935),
-              strokeWidth: 3,
+          ),
+          // Spinner pinned near the bottom
+          const Positioned(
+            bottom: 56,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFFE53935),
+                strokeWidth: 3,
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

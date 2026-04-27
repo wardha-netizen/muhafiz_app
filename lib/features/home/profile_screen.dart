@@ -78,6 +78,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _relative2PhoneController.text = (contacts[1] as Map)['phone'] ?? '';
     }
     _loaded = true;
+
+    // Sync Firestore contacts → SharedPreferences so other screens (report,
+    // emergency contacts) can read them without needing a separate Firestore call.
+    // This handles login-on-new-device where SharedPreferences is otherwise empty.
+    _syncContactsToPrefs();
+  }
+
+  Future<void> _syncContactsToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('name1', _nameController.text.trim());
+    final c1 = _relativePhoneController.text.trim();
+    final c2 = _relative2PhoneController.text.trim();
+    if (c1.isNotEmpty) {
+      await prefs.setString('contact1', c1);
+      await prefs.setString('contactName1', _relativeNameController.text.trim());
+    }
+    if (c2.isNotEmpty) {
+      await prefs.setString('contact2', c2);
+      await prefs.setString('contactName2', _relative2NameController.text.trim());
+    }
   }
 
   Future<void> _pickImage() async {
@@ -222,12 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: onSurface),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: onSurface),
-          onPressed: () {
-            if (Navigator.canPop(context)) Navigator.pop(context);
-          },
-        ),
+        automaticallyImplyLeading: false,
         actions: [
           // Language pill
           GestureDetector(

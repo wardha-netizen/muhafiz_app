@@ -17,6 +17,7 @@ class AppRoutes {
   static const offlineGuide = '/offline_guide';
   static const bluetoothAlerts = '/bluetooth_alerts';
   static const karachiMap = '/karachi_map';
+  static const offlineSos = '/offline_sos';
 
   static Route<dynamic> _smoothRoute({
     required RouteSettings settings,
@@ -82,6 +83,8 @@ class AppRoutes {
         return _smoothRoute(settings: settings, child: const BluetoothScreen());
       case karachiMap:
         return _smoothRoute(settings: settings, child: const KarachiEmergencyMapScreen());
+      case offlineSos:
+        return _smoothRoute(settings: settings, child: const OfflineSosScreen());
       default:
         return _smoothRoute(
           settings: settings,

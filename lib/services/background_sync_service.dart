@@ -1,30 +1,37 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:workmanager/workmanager.dart';
+import '../firebase_options.dart';
+import 'offline_emergency_service.dart';
 
-// This function MUST be outside any class (top-level)
-// so the OS can find it while the app is in the background
+const _kSyncTask = 'muhafiz_sync_task';
+const _kSyncName = 'sync_emergency_data';
+
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    // Logic: Look for "pending" reports in local cache and push to Firestore
-    // This runs only when the system detects a stable network connection
-    return Future.value(true);
+    if (task == _kSyncName) {
+      try {
+        await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform);
+        await OfflineEmergencyService.syncAll();
+      } catch (_) {}
+    }
+    return true;
   });
 }
 
 class BackgroundSyncService {
-  // Initialize this in your main.dart
   static void initialize() {
     Workmanager().initialize(callbackDispatcher);
   }
 
-  // Call this whenever an SOS is triggered while offline
+  /// Register a one-off background task that runs once connectivity is restored.
   static void scheduleSync() {
     Workmanager().registerOneOffTask(
-      'muhafiz_sync_task',
-      'sync_emergency_data',
-      constraints: Constraints(
-        networkType: NetworkType.connected, // Only sync when online
-      ),
+      _kSyncTask,
+      _kSyncName,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+      constraints: Constraints(networkType: NetworkType.connected),
     );
   }
 }

@@ -27,8 +27,11 @@ void main() async {
   unawaited(Future<void>(() => BackgroundSyncService.initialize()));
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => settingsProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => settingsProvider),
+        ChangeNotifierProvider.value(value: OfflineSosService.instance),
+      ],
       child: const AppSetup(),
     ),
   );

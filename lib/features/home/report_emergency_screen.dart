@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -16,8 +19,12 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/settings_provider.dart';
 import '../../services/cloudinary_service.dart';
+import '../../services/offline_emergency_service.dart';
+import '../../services/offline_sos_service.dart';
+import '../../services/background_sync_service.dart';
 import '../../core/localization/app_localizations.dart';
 import '../alerts/other_emergency_screen.dart';
+import 'offline_sos_screen.dart';
 import 'relative_alert_status_screen.dart';
 import 'verification_bot.dart';
 
@@ -32,6 +39,8 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
   String selectedType = 'Fire';
   bool _isUrdu = false;
   String _currentAddress = 'Fetching location...';
+  double? _currentLat;
+  double? _currentLng;
   final TextEditingController _descController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -41,6 +50,13 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
   XFile? _photoProof;
   XFile? _videoProof;
   String? _voiceProofPath;
+
+  // Pre-loaded prefs — cached so submission never blocks on SharedPreferences
+  String _userName = 'Unknown User';
+  String _contactPhone = '';
+  String _contactName = '';
+  String _contact2Phone = '';
+  String _contact2Name = 'Contact 2';
 
   // Siren: 3 s ON → 5 s OFF → max 3 cycles, then auto-stops.
   static const int _maxSirenCycles = 3;
@@ -74,6 +90,64 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    var uName = prefs.getString('name1') ?? '';
+    var c1Phone = prefs.getString('contact1') ?? '';
+    var c1Name = prefs.getString('contactName1') ?? '';
+    var c2Phone = prefs.getString('contact2') ?? '';
+    var c2Name = prefs.getString('contactName2') ?? '';
+
+    // Contacts missing from SharedPreferences (e.g. login on new device).
+    // Fetch from Firestore once and cache locally so every screen works.
+    if (c1Phone.isEmpty && c2Phone.isEmpty) {
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .get();
+          if (doc.exists) {
+            final data = doc.data()!;
+            final contacts = data['contacts'] as List? ?? [];
+            if (contacts.isNotEmpty) {
+              c1Name = (contacts[0] as Map)['name']?.toString() ?? '';
+              c1Phone = (contacts[0] as Map)['phone']?.toString() ?? '';
+            }
+            if (contacts.length > 1) {
+              c2Name = (contacts[1] as Map)['name']?.toString() ?? '';
+              c2Phone = (contacts[1] as Map)['phone']?.toString() ?? '';
+            }
+            if (uName.isEmpty) uName = data['name']?.toString() ?? '';
+
+            // Cache for offline / future use
+            await prefs.setString('name1', uName);
+            if (c1Phone.isNotEmpty) {
+              await prefs.setString('contact1', c1Phone);
+              await prefs.setString('contactName1', c1Name);
+            }
+            if (c2Phone.isNotEmpty) {
+              await prefs.setString('contact2', c2Phone);
+              await prefs.setString('contactName2', c2Name);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _userName = uName.isNotEmpty ? uName : 'Unknown User';
+      _contactPhone = c1Phone;
+      _contactName = c1Name;
+      _contact2Phone = c2Phone;
+      _contact2Name = c2Name.isNotEmpty ? c2Name : 'Contact 2';
+    });
   }
 
   @override
@@ -90,38 +164,53 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
 
   // --- LOCATION LOGIC ---
   Future<void> _getCurrentLocation() async {
-    setState(
-      () => _currentAddress = _t(
-        'Updating location...',
-        'مقام اپ ڈیٹ ہو رہا ہے...',
-      ),
-    );
+    setState(() => _currentAddress = _t(
+          'Updating location...',
+          'مقام اپ ڈیٹ ہو رہا ہے...',
+        ));
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
 
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
+    if (permission != LocationPermission.whileInUse &&
+        permission != LocationPermission.always) {
+      setState(() => _currentAddress =
+          _t('Location permission denied', 'مقام کی اجازت نہیں'));
+      return;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      // GPS coordinates — always available offline
+      setState(() {
+        _currentLat = position.latitude;
+        _currentLng = position.longitude;
+      });
+
+      // Reverse geocoding needs internet; fall back to coordinates if offline
       try {
-        final Position position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-          ),
-        );
-        final List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
-        final Placemark place = placemarks[0];
+        final placemarks = await placemarkFromCoordinates(
+            position.latitude, position.longitude);
+        final place = placemarks[0];
         setState(() {
           _currentAddress =
               '${place.street}, ${place.subLocality}, ${place.locality}';
         });
-      } catch (e) {
-        setState(() => _currentAddress = 'Location Error: $e');
+      } catch (_) {
+        setState(() {
+          _currentAddress =
+              '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+        });
       }
+    } catch (_) {
+      setState(
+          () => _currentAddress = _t('GPS unavailable', 'GPS دستیاب نہیں'));
     }
   }
 
@@ -181,65 +270,97 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
     await _saveEmergencyReport(type);
   }
 
-  Future<String?> _uploadMedia(String filePath) async {
-    return CloudinaryService.uploadFile(File(filePath));
-  }
-
   Future<void> _saveEmergencyReport(String type) async {
     final user = FirebaseAuth.instance.currentUser;
-    final prefs = await SharedPreferences.getInstance();
-    final userName = prefs.getString('name1') ?? 'Unknown User';
-    final contactPhone = prefs.getString('contact1') ?? '';
-    final contactName = prefs.getString('contactName1') ?? '';
-    final emergencyContact = contactPhone.isNotEmpty
-        ? (contactName.isNotEmpty ? '$contactName ($contactPhone)' : contactPhone)
+    final emergencyContact = _contactPhone.isNotEmpty
+        ? (_contactName.isNotEmpty
+            ? '$_contactName ($_contactPhone)'
+            : _contactPhone)
         : '';
 
-    final photoUrl = _photoProof != null
-        ? await _uploadMedia(_photoProof!.path)
-        : null;
-    final videoUrl = _videoProof != null
-        ? await _uploadMedia(_videoProof!.path)
-        : null;
-    final voiceUrl = _voiceProofPath != null
-        ? await _uploadMedia(_voiceProofPath!)
-        : null;
-
-    await FirebaseFirestore.instance.collection('emergencies').add({
+    final reportData = <String, dynamic>{
       'userId': user?.uid,
-      'userName': userName,
+      'userName': _userName,
       'emergencyContact': emergencyContact,
       'type': type,
       'status': 'active',
       'location': _currentAddress,
+      if (_currentLat != null) 'lat': _currentLat,
+      if (_currentLng != null) 'lng': _currentLng,
       'details': _descController.text.trim(),
       'hasPhoto': _photoProof != null,
       'hasVideo': _videoProof != null,
       'hasVoice': _voiceProofPath != null,
-      'photoUrl': photoUrl,
-      'videoUrl': videoUrl,
-      'voiceUrl': voiceUrl,
-      'timestamp': FieldValue.serverTimestamp(),
+      'photoUrl': null,
+      'videoUrl': null,
+      'voiceUrl': null,
+    };
+
+    final connectivity = await Connectivity().checkConnectivity();
+    final isOnline = !connectivity.contains(ConnectivityResult.none);
+
+    if (isOnline) {
+      // Online: write directly to Firestore; upload media in background
+      final docRef = await FirebaseFirestore.instance
+          .collection('emergencies')
+          .add({...reportData, 'timestamp': FieldValue.serverTimestamp()});
+      if (_photoProof != null || _videoProof != null || _voiceProofPath != null) {
+        _uploadMediaInBackground(docRef);
+      }
+    } else {
+      // Offline: queue locally; BackgroundSyncService pushes it once online
+      await OfflineEmergencyService.queue(reportData);
+      BackgroundSyncService.scheduleSync();
+    }
+  }
+
+  // Runs all Cloudinary uploads in parallel without blocking the UI.
+  // Updates the Firestore doc with each URL as soon as all uploads finish.
+  void _uploadMediaInBackground(DocumentReference docRef) {
+    final photoPath = _photoProof?.path;
+    final videoPath = _videoProof?.path;
+    final voicePath = _voiceProofPath;
+
+    Future(() async {
+      final futures = <Future<MapEntry<String, String?>>>[];
+      if (photoPath != null) {
+        futures.add(CloudinaryService.uploadFile(File(photoPath))
+            .then((url) => MapEntry('photoUrl', url)));
+      }
+      if (videoPath != null) {
+        futures.add(CloudinaryService.uploadFile(File(videoPath))
+            .then((url) => MapEntry('videoUrl', url)));
+      }
+      if (voicePath != null) {
+        futures.add(CloudinaryService.uploadFile(File(voicePath))
+            .then((url) => MapEntry('voiceUrl', url)));
+      }
+      final results = await Future.wait(futures);
+      final updates = <String, dynamic>{};
+      for (final entry in results) {
+        if (entry.value != null) updates[entry.key] = entry.value;
+      }
+      if (updates.isNotEmpty) await docRef.update(updates);
     });
   }
 
   Future<List<String>> _showContactAlertSheet() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userName = prefs.getString('name1') ?? 'MUHAFIZ User';
-    final c1Phone = prefs.getString('contact1') ?? '';
-    final c1Name = prefs.getString('contactName1') ?? 'Contact 1';
-    final c2Phone = prefs.getString('contact2') ?? '';
-    final c2Name = prefs.getString('contactName2') ?? 'Contact 2';
-
     final msg = '🚨 EMERGENCY ALERT 🚨\n'
-        'User: $userName\n'
+        'User: $_userName\n'
         'Type: $selectedType\n'
         'Location: $_currentAddress\n'
         '${_descController.text.trim().isNotEmpty ? 'Info: ${_descController.text.trim()}' : ''}';
 
     final contacts = <({String name, String phone})>[];
-    if (c1Phone.isNotEmpty) contacts.add((name: c1Name, phone: c1Phone));
-    if (c2Phone.isNotEmpty) contacts.add((name: c2Name, phone: c2Phone));
+    if (_contactPhone.isNotEmpty) {
+      contacts.add((
+        name: _contactName.isNotEmpty ? _contactName : 'Contact 1',
+        phone: _contactPhone,
+      ));
+    }
+    if (_contact2Phone.isNotEmpty) {
+      contacts.add((name: _contact2Name, phone: _contact2Phone));
+    }
 
     if (contacts.isEmpty) {
       if (mounted) {
@@ -407,27 +528,99 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
   }
 
   Widget _buildLocationCard(Color border, Color textColor) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on, color: Colors.red),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _currentAddress,
-              style: TextStyle(color: textColor, fontSize: 13),
+    final hasCoords = _currentLat != null && _currentLng != null;
+    final pinPos = hasCoords ? LatLng(_currentLat!, _currentLng!) : null;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: border),
+        ),
+        child: Column(
+          children: [
+            // ── mini map ──────────────────────────────────────────────
+            SizedBox(
+              height: 170,
+              child: hasCoords
+                  ? FlutterMap(
+                      // ValueKey forces a rebuild when coords change
+                      key: ValueKey('$_currentLat,$_currentLng'),
+                      options: MapOptions(
+                        initialCenter: pinPos!,
+                        initialZoom: 16,
+                        interactionOptions: const InteractionOptions(
+                          flags: InteractiveFlag.none,
+                        ),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.muhafiz.app',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: pinPos,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_pin,
+                                color: Colors.red,
+                                size: 40,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.map_outlined,
+                                color: Colors.grey, size: 36),
+                            const SizedBox(height: 6),
+                            Text(
+                              _t('Waiting for GPS...', 'GPS کا انتظار...'),
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.red),
-            onPressed: _getCurrentLocation,
-          ),
-        ],
+            // ── address row ───────────────────────────────────────────
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.red, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentAddress,
+                      style: TextStyle(color: textColor, fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.red,
+                        size: 20),
+                    onPressed: _getCurrentLocation,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -586,14 +779,36 @@ class _ReportEmergencyScreenState extends State<ReportEmergencyScreen> {
       await _executeProtocol(selectedType);
       if (!mounted) return;
 
+      final connectivity = await Connectivity().checkConnectivity();
+      final isOnline = !connectivity.contains(ConnectivityResult.none);
+
+      if (!isOnline) {
+        // Offline path: SOS service auto-SMSes contacts and watches for
+        // reconnection to sync the report and alert the MUHAFIZ community.
+        await OfflineSosService.instance.trigger(
+          emergencyType: selectedType,
+          locationText: _currentAddress,
+          userName: _userName,
+          contact1Phone: _contactPhone.isNotEmpty ? _contactPhone : null,
+          contact1Name: _contactName.isNotEmpty ? _contactName : null,
+          contact2Phone: _contact2Phone.isNotEmpty ? _contact2Phone : null,
+          contact2Name: _contact2Name.isNotEmpty ? _contact2Name : null,
+        );
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const OfflineSosScreen()),
+        );
+        return;
+      }
+
+      // Online path: existing flow
       _showSnackBar(
         _t('Report submitted successfully!', 'رپورٹ کامیابی سے جمع ہو گئی!'),
         Colors.green,
       );
-
       final recipients = await _showContactAlertSheet();
       if (!mounted) return;
-
       Navigator.push(
         context,
         MaterialPageRoute(

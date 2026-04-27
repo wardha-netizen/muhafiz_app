@@ -24,6 +24,15 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   String _t(String en, String ur) => _isUrdu ? ur : en;
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-clear playing state when track finishes
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playingId = null);
+    });
+  }
+
+  @override
   void dispose() {
     _audioPlayer.dispose();
     super.dispose();
@@ -33,17 +42,33 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     if (_playingId == id) {
       await _audioPlayer.stop();
       setState(() => _playingId = null);
-    } else {
+      return;
+    }
+    try {
       await _audioPlayer.stop();
       await _audioPlayer.play(UrlSource(url));
       setState(() => _playingId = id);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _playingId = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('Audio playback failed: $e', 'آڈیو چلانے میں ناکامی: $e')),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ));
     }
   }
 
   Future<void> _openVideo(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('Could not open video: $e', 'ویڈیو نہیں کھل سکی: $e')),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ));
     }
   }
 
@@ -381,50 +406,56 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
           // ── Photo ─────────────────────────────────────────────────
           if (photoUrl != null) ...[
             const SizedBox(height: 10),
-            ClipRRect(
-              child: Image.network(
-                photoUrl,
-                width: double.infinity,
-                height: 190,
-                fit: BoxFit.cover,
-                loadingBuilder: (_, child, progress) => progress == null
-                    ? child
-                    : Container(
-                        height: 190,
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.grey[200],
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.redAccent, strokeWidth: 2),
-                        ),
+            Image.network(
+              photoUrl,
+              width: double.infinity,
+              height: 190,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      height: 190,
+                      color: isDark ? Colors.white10 : Colors.grey[200],
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                            color: Colors.redAccent, strokeWidth: 2),
                       ),
-                errorBuilder: (_, __, ___) => Container(
-                  height: 56,
-                  color: isDark ? Colors.white10 : Colors.grey[200],
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.broken_image_outlined,
-                          color: onFaint, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                          _t('Image unavailable', 'تصویر دستیاب نہیں'),
-                          style:
-                              TextStyle(color: onFaint, fontSize: 12)),
-                    ],
-                  ),
+                    ),
+              errorBuilder: (_, __, ___) => Container(
+                height: 56,
+                color: isDark ? Colors.white10 : Colors.grey[200],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_outlined, color: onFaint, size: 18),
+                    const SizedBox(width: 6),
+                    Text(_t('Image unavailable', 'تصویر دستیاب نہیں'),
+                        style: TextStyle(color: onFaint, fontSize: 12)),
+                  ],
                 ),
               ),
             ),
-          ],
+          ] else if (data['hasPhoto'] == true)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: _mediaChip(
+                  Icons.image_outlined,
+                  _t('Photo attached', 'تصویر منسلک'),
+                  onFaint,
+                  isDark),
+            ),
           // ── Video + Audio ─────────────────────────────────────────
-          if (videoUrl != null || voiceUrl != null)
+          if (videoUrl != null ||
+              voiceUrl != null ||
+              data['hasVideo'] == true ||
+              data['hasVoice'] == true)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
               child: Wrap(
                 spacing: 8,
+                runSpacing: 6,
                 children: [
+                  // Video: button if URL present, chip if only flag set
                   if (videoUrl != null)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -440,7 +471,11 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                       label: Text(_t('Play Video', 'ویڈیو چلائیں'),
                           style: const TextStyle(fontSize: 12)),
                       onPressed: () => _openVideo(videoUrl),
-                    ),
+                    )
+                  else if (data['hasVideo'] == true)
+                    _mediaChip(Icons.videocam_outlined,
+                        _t('Video attached', 'ویڈیو منسلک'), onFaint, isDark),
+                  // Audio: button if URL present, chip if only flag set
                   if (voiceUrl != null)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -468,7 +503,10 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                         style: const TextStyle(fontSize: 12),
                       ),
                       onPressed: () => _toggleAudio(voiceUrl, doc.id),
-                    ),
+                    )
+                  else if (data['hasVoice'] == true)
+                    _mediaChip(Icons.mic_outlined,
+                        _t('Audio attached', 'آواز منسلک'), onFaint, isDark),
                 ],
               ),
             ),
@@ -535,6 +573,25 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mediaChip(IconData icon, String label, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 11, color: color)),
         ],
       ),
     );
