@@ -4,6 +4,8 @@
 To use the MUHAFIZ app on your Android device, download the latest APK from the link below:
 
 [**Download MUHAFIZ APK**](https://github.com/wardha-netizen/muhafiz_app/releases/download/v1.0.0/MUHAFIZ_v1.0_Wardha_Khalid.apk)
+### 📱 Scan to Download APK
+![MUHAFIZ QR Code](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://github.com/wardha-netizen/muhafiz_app/releases/download/v1.0.0/MUHAFIZ_v1.0_Wardha_Khalid.apk)
 
 **Package name:** `muhafiz_1` · **Platform:** [Flutter](https://flutter.dev/) (Dart SDK `>=3.3.0 <4.0.0`)
 
