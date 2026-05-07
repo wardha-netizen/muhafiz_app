@@ -1,5 +1,10 @@
 # MUHAFIZ – Zindagiyon Ka Tahaffuz
 
+## 📥 Download App
+To use the MUHAFIZ app on your Android device, download the latest APK from the link below:
+
+[**Download MUHAFIZ APK**](https://github.com/wardha-netizen/muhafiz_app/releases/download/v1.0.0/MUHAFIZ_v1.0_Wardha_Khalid.apk)
+
 **Package name:** `muhafiz_1` · **Platform:** [Flutter](https://flutter.dev/) (Dart SDK `>=3.3.0 <4.0.0`)
 
 A mobile emergency-response application focused on **SOS-style alerts**, **location-aware reporting**, **Firebase-backed user and emergency data**, and **situational tools** (maps, disaster context, Bluetooth proximity awareness, and an offline help guide). The app targets **Karachi, Pakistan** for several map and risk APIs, with much of the UI offering **English / Urdu** labels via a small localization helper.
